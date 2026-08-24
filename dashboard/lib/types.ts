@@ -121,6 +121,7 @@ export interface DashboardSummary {
   totalEngagements: number;
   engagementRate: number;
   contentCount: number;
+  averageViewsPerContent: number;
   /** Present only when a full previous-equivalent period exists within the dataset's date bounds. */
   comparison: DashboardComparison | null;
 }

@@ -94,6 +94,8 @@ export function buildSummary(
     totalEngagements,
     engagementRate,
     contentCount: current.length,
+    averageViewsPerContent:
+      current.length > 0 ? Math.round(totals.views / current.length) : 0,
     comparison,
   };
 }

@@ -1,4 +1,4 @@
-import { Bookmark, Eye, Heart, MessageCircle, Share2, Zap } from "lucide-react";
+import { Bookmark, Eye, Gauge, Heart, Layers, MessageCircle, Share2, Zap } from "lucide-react";
 import { KPICard } from "./KPICard";
 import { formatCompactNumber, formatPercent, formatSignedPercent, formatSignedPoints } from "@/lib/formatters";
 import type { DashboardSummary } from "@/lib/types";
@@ -8,7 +8,7 @@ export function KPIOverview({ summary }: { summary: DashboardSummary }) {
 
   return (
     <section aria-label="Key performance indicators" className="flex flex-col gap-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KPICard
           emphasis="primary"
           label="Total Views"
@@ -17,6 +17,13 @@ export function KPIOverview({ summary }: { summary: DashboardSummary }) {
           icon={Eye}
           delta={c?.deltaViewsPct}
           deltaLabel={c ? formatSignedPercent(c.deltaViewsPct) : undefined}
+        />
+        <KPICard
+          emphasis="primary"
+          label="Total Content"
+          value={formatCompactNumber(summary.contentCount)}
+          exactValue={summary.contentCount}
+          icon={Layers}
         />
         <KPICard
           emphasis="primary"
@@ -37,7 +44,13 @@ export function KPIOverview({ summary }: { summary: DashboardSummary }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <KPICard
+          label="Avg Views / Content"
+          value={formatCompactNumber(summary.averageViewsPerContent)}
+          exactValue={summary.averageViewsPerContent}
+          icon={Gauge}
+        />
         <KPICard
           label="Likes"
           value={formatCompactNumber(summary.totalLikes)}
