@@ -6,26 +6,38 @@ import {
   formatExactNumber,
   formatPercent,
 } from "@/lib/formatters";
+import type { CampaignMeta } from "@/lib/campaigns";
 import type { ClassificationBreakdown, ClassificationDimension } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
 
-const DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
+const BASE_DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
   { id: "product", label: "Product" },
   { id: "approach", label: "Approach" },
   { id: "contentType", label: "Content Type" },
   { id: "platform", label: "Platform" },
 ];
+const CAMPAIGN_DIMENSION = { id: "campaign" as ClassificationDimension, label: "Campaign" };
 
 export function ClassificationPerformance({
   dimension,
   breakdown,
+  campaigns,
+  showCampaignDimension,
   onDimensionChange,
 }: {
   dimension: ClassificationDimension;
   breakdown: ClassificationBreakdown[];
+  campaigns: CampaignMeta[];
+  showCampaignDimension?: boolean;
   onDimensionChange: (d: ClassificationDimension) => void;
 }) {
   const maxViews = Math.max(1, ...breakdown.map((b) => b.views));
+  const dimensions = showCampaignDimension
+    ? [...BASE_DIMENSIONS, CAMPAIGN_DIMENSION]
+    : BASE_DIMENSIONS;
+  const campaignNameById = new Map(campaigns.map((c) => [c.id, c.name]));
+  const displayKey = (key: string) =>
+    dimension === "campaign" ? (campaignNameById.get(key) ?? key) : key;
 
   return (
     <section className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 sm:p-5">
@@ -40,7 +52,7 @@ export function ClassificationPerformance({
         </div>
         <Tabs value={dimension} onValueChange={(v) => onDimensionChange(v as ClassificationDimension)}>
           <TabsList>
-            {DIMENSIONS.map((d) => (
+            {dimensions.map((d) => (
               <TabsTrigger key={d.id} value={d.id}>
                 {d.label}
               </TabsTrigger>
@@ -60,7 +72,7 @@ export function ClassificationPerformance({
             {breakdown.map((row) => (
               <li key={row.key} className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-                  <span className="text-sm font-medium text-foreground">{row.key}</span>
+                  <span className="text-sm font-medium text-foreground">{displayKey(row.key)}</span>
                   <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs text-foreground-muted">
                     <span title={formatExactNumber(row.views)}>
                       <strong className="tabular-nums font-semibold text-foreground">

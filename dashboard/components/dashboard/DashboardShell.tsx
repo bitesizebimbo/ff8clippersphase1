@@ -4,111 +4,169 @@ import { useMemo } from "react";
 import { useDashboardState } from "@/lib/use-dashboard-state";
 import {
   getClassificationPerformance,
-  getContentById,
   getContentPerformance,
   getDashboardSummary,
-  getDatasetDateBounds,
   getFilterOptions,
   getPerformanceTimeline,
   getTotalContentCount,
   sortContent,
 } from "@/lib/data";
+import { findCampaignMeta, type CampaignMeta } from "@/lib/campaigns";
+import type { ContentItem } from "@/lib/types";
 import { DashboardHeader } from "./DashboardHeader";
 import { DateRangePicker } from "./DateRangePicker";
+import { CampaignSwitcher } from "./CampaignSwitcher";
 import { FilterBar } from "./FilterBar";
 import { KPIOverview } from "./KPIOverview";
 import { PerformanceChart } from "./PerformanceChart";
 import { ClassificationPerformance } from "./ClassificationPerformance";
 import { ContentLibrary } from "./ContentLibrary";
 import { ContentDetailDrawer } from "./ContentDetailDrawer";
+import { CompareView } from "./CompareView";
 
-export function DashboardShell() {
-  const state = useDashboardState();
-  const bounds = getDatasetDateBounds();
-  const filterOptions = useMemo(() => getFilterOptions(), []);
-  const totalUnfiltered = getTotalContentCount();
+export function DashboardShell({
+  content,
+  campaigns,
+}: {
+  content: ContentItem[];
+  campaigns: CampaignMeta[];
+}) {
+  const state = useDashboardState(content);
+  const isAllMode = state.mode === "all";
+  const campaignScope = useMemo(
+    () => (isAllMode ? undefined : [state.activeCampaignId]),
+    [isAllMode, state.activeCampaignId],
+  );
+
+  const filterOptions = useMemo(
+    () => getFilterOptions(content, campaignScope),
+    [content, campaignScope],
+  );
+  const totalUnfiltered = useMemo(
+    () => getTotalContentCount(content, campaignScope),
+    [content, campaignScope],
+  );
 
   const filteredContent = useMemo(
-    () => getContentPerformance(state.filters),
-    [state.filters],
+    () => getContentPerformance(content, state.filters),
+    [content, state.filters],
   );
   const sortedContent = useMemo(
     () => sortContent(filteredContent, state.sortBy),
     [filteredContent, state.sortBy],
   );
   const summary = useMemo(
-    () => getDashboardSummary(state.filters),
-    [state.filters],
+    () => getDashboardSummary(content, state.filters),
+    [content, state.filters],
   );
   const timeline = useMemo(
-    () => getPerformanceTimeline(state.filters, state.chartGranularity),
-    [state.filters, state.chartGranularity],
+    () => getPerformanceTimeline(content, state.filters, state.chartGranularity),
+    [content, state.filters, state.chartGranularity],
   );
   const classificationBreakdown = useMemo(
-    () => getClassificationPerformance(state.classificationDimension, state.filters),
-    [state.classificationDimension, state.filters],
+    () => getClassificationPerformance(content, state.classificationDimension, state.filters),
+    [content, state.classificationDimension, state.filters],
   );
+  const contentById = useMemo(() => new Map(content.map((c) => [c.id, c])), [content]);
   const selectedContent = state.selectedContentId
-    ? (getContentById(state.selectedContentId) ?? null)
+    ? (contentById.get(state.selectedContentId) ?? null)
     : null;
+
+  const activeCampaignMeta = findCampaignMeta(campaigns, state.activeCampaignId);
+  const headerEyebrow =
+    state.mode === "single" && activeCampaignMeta
+      ? `${activeCampaignMeta.productLabel} · ${activeCampaignMeta.name}`
+      : state.mode === "all"
+        ? "All Campaigns"
+        : "Compare Campaigns";
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-      <DashboardHeader dataAsOf={bounds.maxDate}>
-        <DateRangePicker
-          preset={state.dateRangePreset}
-          range={state.filters.dateRange}
-          bounds={bounds}
-          onPresetChange={state.setDateRangePreset}
-          onCustomChange={state.setCustomDateRange}
-        />
+      <DashboardHeader dataAsOf={state.dateBounds.maxDate} eyebrow={headerEyebrow}>
+        {state.mode !== "compare" && (
+          <DateRangePicker
+            preset={state.dateRangePreset}
+            range={state.filters.dateRange}
+            bounds={state.dateBounds}
+            onPresetChange={state.setDateRangePreset}
+            onCustomChange={state.setCustomDateRange}
+          />
+        )}
       </DashboardHeader>
 
-      <FilterBar
-        options={filterOptions}
-        filters={state.filters}
-        hasActiveFilters={state.hasActiveFilters}
-        onProductChange={state.setProductFilter}
-        onApproachChange={state.setApproachFilter}
-        onContentTypeChange={state.setContentTypeFilter}
-        onPlatformChange={state.setPlatformFilter}
-        onSearchChange={state.setSearch}
-        onClear={state.clearFilters}
+      <CampaignSwitcher
+        campaigns={campaigns}
+        mode={state.mode}
+        activeCampaignId={state.activeCampaignId}
+        onModeChange={state.setMode}
+        onCampaignChange={state.setActiveCampaignId}
       />
 
-      <KPIOverview summary={summary} />
+      {state.mode === "compare" ? (
+        <CompareView
+          allContent={content}
+          campaigns={campaigns}
+          campaignIds={state.compareCampaignIds}
+          granularity={state.chartGranularity}
+          metric={state.chartMetric}
+          onCampaignIdsChange={state.setCompareCampaignIds}
+          onGranularityChange={state.setChartGranularity}
+          onMetricChange={state.setChartMetric}
+        />
+      ) : (
+        <>
+          <FilterBar
+            options={filterOptions}
+            filters={state.filters}
+            hasActiveFilters={state.hasActiveFilters}
+            showCampaignFilter={isAllMode}
+            campaigns={campaigns}
+            onCampaignChange={state.setAllModeCampaigns}
+            onProductChange={state.setProductFilter}
+            onApproachChange={state.setApproachFilter}
+            onContentTypeChange={state.setContentTypeFilter}
+            onPlatformChange={state.setPlatformFilter}
+            onSearchChange={state.setSearch}
+            onClear={state.clearFilters}
+          />
 
-      <PerformanceChart
-        data={timeline}
-        granularity={state.chartGranularity}
-        metric={state.chartMetric}
-        onGranularityChange={state.setChartGranularity}
-        onMetricChange={state.setChartMetric}
-      />
+          <KPIOverview summary={summary} />
 
-      <ClassificationPerformance
-        dimension={state.classificationDimension}
-        breakdown={classificationBreakdown}
-        onDimensionChange={state.setClassificationDimension}
-      />
+          <PerformanceChart
+            data={timeline}
+            granularity={state.chartGranularity}
+            metric={state.chartMetric}
+            onGranularityChange={state.setChartGranularity}
+            onMetricChange={state.setChartMetric}
+          />
 
-      <ContentLibrary
-        items={sortedContent}
-        totalUnfiltered={totalUnfiltered}
-        sortBy={state.sortBy}
-        viewMode={state.viewMode}
-        onSortChange={state.setSortBy}
-        onViewModeChange={state.setViewMode}
-        onSelect={state.setSelectedContentId}
-        onClearFilters={state.clearFilters}
-      />
+          <ClassificationPerformance
+            dimension={state.classificationDimension}
+            breakdown={classificationBreakdown}
+            campaigns={campaigns}
+            showCampaignDimension={isAllMode}
+            onDimensionChange={state.setClassificationDimension}
+          />
 
-      <ContentDetailDrawer
-        item={selectedContent}
-        onOpenChange={(open) => {
-          if (!open) state.setSelectedContentId(null);
-        }}
-      />
+          <ContentLibrary
+            items={sortedContent}
+            totalUnfiltered={totalUnfiltered}
+            sortBy={state.sortBy}
+            viewMode={state.viewMode}
+            onSortChange={state.setSortBy}
+            onViewModeChange={state.setViewMode}
+            onSelect={state.setSelectedContentId}
+            onClearFilters={state.clearFilters}
+          />
+
+          <ContentDetailDrawer
+            item={selectedContent}
+            onOpenChange={(open) => {
+              if (!open) state.setSelectedContentId(null);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

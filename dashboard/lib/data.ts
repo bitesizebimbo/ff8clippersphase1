@@ -1,14 +1,15 @@
-// Data-access abstraction. Every screen reads through these functions, never
-// through data/content.json directly — so the local JSON file can later be
-// swapped for a REST API, Supabase, BigQuery, Google Sheets, etc. without
-// touching a single component. See README.md "Replacing mock data".
+// Data-access layer. Every function here is a pure transform over a
+// `content: ContentItem[]` array the caller provides — it holds no data of
+// its own and doesn't know where that array came from (a static JSON file,
+// a live Google Sheet, a future REST API — see lib/load-content.ts, which
+// is the one place that actually assembles it). Components never touch a
+// data source directly; they only call these functions.
 
-import rawContent from "@/data/content.json";
 import {
   aggregateByClassification,
   buildSummary,
   buildTimeline,
-  toContentItem,
+  toDailyRecords,
 } from "./analytics";
 import {
   filterContent,
@@ -16,50 +17,37 @@ import {
   getDatasetBounds,
   resolveDatePreset,
   resolvePreviousPeriod,
+  type DatasetBounds,
 } from "./filters";
 import type {
   ChartGranularity,
   ClassificationBreakdown,
   ClassificationDimension,
   ContentItem,
-  DailyPerformanceRecord,
   DashboardFilters,
   DashboardSummary,
   DatePreset,
   DateRange,
-  RawContentRecord,
   SortOption,
   TimelinePoint,
 } from "./types";
 
-const CONTENT: ContentItem[] = (rawContent as RawContentRecord[]).map(
-  toContentItem,
-);
+function scopeToContent(content: ContentItem[], campaignIds?: string[]): ContentItem[] {
+  if (!campaignIds || campaignIds.length === 0) return content;
+  return content.filter((item) => campaignIds.includes(item.campaignId));
+}
 
-// Each content item currently yields exactly one observation dated at its
-// publishDate (see DailyPerformanceRecord doc comment in lib/types.ts).
-const DAILY_RECORDS: DailyPerformanceRecord[] = CONTENT.map((item) => ({
-  date: item.publishDate,
-  contentId: item.id,
-  views: item.views,
-  likes: item.likes,
-  comments: item.comments,
-  shares: item.shares,
-  saves: item.saves,
-}));
-
-const CONTENT_BY_ID = new Map(CONTENT.map((item) => [item.id, item]));
-const DATASET_BOUNDS = getDatasetBounds(CONTENT);
-
-export function getDatasetDateBounds() {
-  return DATASET_BOUNDS;
+/** Global bounds when no campaign is given (used by All mode); a single campaign's own bounds otherwise (used by Single mode). */
+export function getDateBounds(content: ContentItem[], campaignIds?: string[]): DatasetBounds {
+  return getDatasetBounds(scopeToContent(content, campaignIds));
 }
 
 export function resolveDateRange(
   preset: DatePreset,
-  custom?: { start: string; end: string },
+  custom: { start: string; end: string } | undefined,
+  bounds: DatasetBounds,
 ): DateRange {
-  return resolveDatePreset(preset, DATASET_BOUNDS, custom);
+  return resolveDatePreset(preset, bounds, custom);
 }
 
 export interface FilterOptions {
@@ -69,12 +57,16 @@ export interface FilterOptions {
   platform: string[];
 }
 
-export function getFilterOptions(): FilterOptions {
+export function getFilterOptions(
+  content: ContentItem[],
+  campaignIds?: string[],
+): FilterOptions {
+  const scoped = scopeToContent(content, campaignIds);
   return {
-    product: uniqueSorted(CONTENT.map((c) => c.product)),
-    approach: uniqueSorted(CONTENT.map((c) => c.approach)),
-    contentType: uniqueSorted(CONTENT.map((c) => c.contentType)),
-    platform: uniqueSorted(CONTENT.map((c) => c.platform)),
+    product: uniqueSorted(scoped.map((c) => c.product)),
+    approach: uniqueSorted(scoped.map((c) => c.approach)),
+    contentType: uniqueSorted(scoped.map((c) => c.contentType)),
+    platform: uniqueSorted(scoped.map((c) => c.platform)),
   };
 }
 
@@ -82,8 +74,11 @@ function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort((a, b) => a.localeCompare(b));
 }
 
-export function getContentPerformance(filters: DashboardFilters): ContentItem[] {
-  return filterContent(CONTENT, filters);
+export function getContentPerformance(
+  content: ContentItem[],
+  filters: DashboardFilters,
+): ContentItem[] {
+  return filterContent(content, filters);
 }
 
 export function sortContent(
@@ -107,41 +102,47 @@ export function sortContent(
   }
 }
 
-export function getDashboardSummary(filters: DashboardFilters): DashboardSummary {
-  const current = filterContent(CONTENT, filters);
+export function getDashboardSummary(
+  content: ContentItem[],
+  filters: DashboardFilters,
+): DashboardSummary {
+  const current = filterContent(content, filters);
 
-  const previousRange = resolvePreviousPeriod(filters.dateRange, DATASET_BOUNDS);
+  const bounds = getDateBounds(content, filters.campaign);
+  const previousRange = resolvePreviousPeriod(filters.dateRange, bounds);
   const previous = previousRange
-    ? filterContent(CONTENT, { ...filters, dateRange: previousRange })
+    ? filterContent(content, { ...filters, dateRange: previousRange })
     : null;
 
   return buildSummary(current, previous);
 }
 
 export function getPerformanceTimeline(
+  content: ContentItem[],
   filters: DashboardFilters,
   granularity: ChartGranularity,
 ): TimelinePoint[] {
-  const matchingIds = new Set(filterContent(CONTENT, filters).map((c) => c.id));
+  const matching = filterContent(content, filters);
+  const matchingIds = new Set(matching.map((c) => c.id));
   const records = filterPerformanceByDate(
-    DAILY_RECORDS.filter((r) => matchingIds.has(r.contentId)),
+    toDailyRecords(content).filter((r) => matchingIds.has(r.contentId)),
     filters.dateRange,
   );
   return buildTimeline(records, granularity);
 }
 
 export function getClassificationPerformance(
+  content: ContentItem[],
   dimension: ClassificationDimension,
   filters: DashboardFilters,
 ): ClassificationBreakdown[] {
-  const current = filterContent(CONTENT, filters);
+  const current = filterContent(content, filters);
   return aggregateByClassification(current, dimension);
 }
 
-export function getContentById(id: string): ContentItem | undefined {
-  return CONTENT_BY_ID.get(id);
-}
-
-export function getTotalContentCount(): number {
-  return CONTENT.length;
+export function getTotalContentCount(
+  content: ContentItem[],
+  campaignIds?: string[],
+): number {
+  return scopeToContent(content, campaignIds).length;
 }

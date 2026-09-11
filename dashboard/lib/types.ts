@@ -10,6 +10,7 @@ export type Platform = "TikTok" | "YouTube" | (string & {});
 
 export interface RawContentRecord {
   id: string;
+  campaignId: string;
   title: string;
   caption: string;
   creator: string;
@@ -56,7 +57,8 @@ export type ClassificationDimension =
   | "product"
   | "approach"
   | "contentType"
-  | "platform";
+  | "platform"
+  | "campaign";
 
 export interface ClassificationBreakdown {
   key: string;
@@ -105,11 +107,32 @@ export interface DateRange {
 
 export interface DashboardFilters {
   dateRange: DateRange;
+  campaign: string[];
   product: string[];
   approach: string[];
   contentType: string[];
   platform: string[];
   search: string;
+}
+
+/**
+ * Single mode: the whole dashboard scoped to one campaign, chosen from the
+ * switcher (the classic experience). All mode: every campaign merged, with
+ * "Campaign" available as a normal filter and a 5th classification
+ * dimension. Compare mode: exactly two campaigns, each summarized over its
+ * own full run (see lib/compare.ts) — dates, products, and other filters
+ * generally won't line up 1:1 across campaigns, so Compare intentionally
+ * ignores the date-range/filter bar and compares whole-campaign totals.
+ */
+export type DashboardMode = "single" | "all" | "compare";
+
+export interface CampaignComparisonRow {
+  metricKey: string;
+  label: string;
+  format: "compact" | "percent";
+  values: number[]; // one per compared campaign, same order as the campaign id list
+  /** Signed % difference of values[1] vs values[0]; only meaningful/shown for exactly 2 campaigns. */
+  deltaPct: number | null;
 }
 
 export interface DashboardSummary {
@@ -121,6 +144,7 @@ export interface DashboardSummary {
   totalEngagements: number;
   engagementRate: number;
   contentCount: number;
+  averageViewsPerContent: number;
   /** Present only when a full previous-equivalent period exists within the dataset's date bounds. */
   comparison: DashboardComparison | null;
 }
