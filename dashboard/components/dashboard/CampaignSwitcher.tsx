@@ -1,21 +1,23 @@
 "use client";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CAMPAIGNS } from "@/lib/campaigns";
+import type { CampaignMeta } from "@/lib/campaigns";
 import type { DashboardMode } from "@/lib/types";
 
 export function CampaignSwitcher({
+  campaigns,
   mode,
   activeCampaignId,
   onModeChange,
   onCampaignChange,
 }: {
+  campaigns: CampaignMeta[];
   mode: DashboardMode;
   activeCampaignId: string;
   onModeChange: (mode: DashboardMode) => void;
   onCampaignChange: (id: string) => void;
 }) {
-  const canCompare = CAMPAIGNS.length >= 2;
+  const canCompare = campaigns.length >= 2;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -32,14 +34,14 @@ export function CampaignSwitcher({
           </TabsTrigger>
         </TabsList>
       </Tabs>
-      {mode === "single" && CAMPAIGNS.length > 1 && (
+      {mode === "single" && campaigns.length > 1 && (
         <select
           value={activeCampaignId}
           onChange={(e) => onCampaignChange(e.target.value)}
           aria-label="Active campaign"
           className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
         >
-          {CAMPAIGNS.map((c) => (
+          {campaigns.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CAMPAIGNS } from "@/lib/campaigns";
+import type { CampaignMeta } from "@/lib/campaigns";
 import { buildCampaignCompareEntries, buildComparisonRows } from "@/lib/compare";
 import type { ChartGranularity, ChartMetric, ContentItem } from "@/lib/types";
 import { CompareTrendChart } from "./CompareTrendChart";
@@ -10,6 +10,7 @@ import { EmptyState } from "./EmptyState";
 
 export function CompareView({
   allContent,
+  campaigns,
   campaignIds,
   granularity,
   metric,
@@ -18,6 +19,7 @@ export function CompareView({
   onMetricChange,
 }: {
   allContent: ContentItem[];
+  campaigns: CampaignMeta[];
   campaignIds: string[];
   granularity: ChartGranularity;
   metric: ChartMetric;
@@ -25,15 +27,18 @@ export function CompareView({
   onGranularityChange: (g: ChartGranularity) => void;
   onMetricChange: (m: ChartMetric) => void;
 }) {
-  const canCompare = CAMPAIGNS.length >= 2;
-  const idA = campaignIds[0] ?? CAMPAIGNS[0]?.id ?? "";
+  const canCompare = campaigns.length >= 2;
+  const idA = campaignIds[0] ?? campaigns[0]?.id ?? "";
   const idB = canCompare
-    ? (campaignIds[1] ?? CAMPAIGNS.find((c) => c.id !== idA)?.id ?? CAMPAIGNS[1].id)
+    ? (campaignIds[1] ?? campaigns.find((c) => c.id !== idA)?.id ?? campaigns[1].id)
     : idA;
 
   const entries = useMemo(
-    () => (canCompare ? buildCampaignCompareEntries(allContent, [idA, idB], granularity) : []),
-    [canCompare, allContent, idA, idB, granularity],
+    () =>
+      canCompare
+        ? buildCampaignCompareEntries(allContent, campaigns, [idA, idB], granularity)
+        : [],
+    [canCompare, allContent, campaigns, idA, idB, granularity],
   );
   const rows = useMemo(() => buildComparisonRows(entries), [entries]);
 
@@ -54,6 +59,7 @@ export function CompareView({
           label="Campaign A"
           value={idA}
           exclude={idB}
+          campaigns={campaigns}
           onChange={(next) => onCampaignIdsChange([next, idB])}
         />
         <span className="text-sm font-medium text-foreground-subtle">vs</span>
@@ -61,6 +67,7 @@ export function CompareView({
           label="Campaign B"
           value={idB}
           exclude={idA}
+          campaigns={campaigns}
           onChange={(next) => onCampaignIdsChange([idA, next])}
         />
       </div>
@@ -82,11 +89,13 @@ function CampaignSelect({
   label,
   value,
   exclude,
+  campaigns,
   onChange,
 }: {
   label: string;
   value: string;
   exclude: string;
+  campaigns: CampaignMeta[];
   onChange: (id: string) => void;
 }) {
   return (
@@ -97,11 +106,13 @@ function CampaignSelect({
         onChange={(e) => onChange(e.target.value)}
         className="h-9 min-w-0 flex-1 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
       >
-        {CAMPAIGNS.filter((c) => c.id !== exclude).map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
+        {campaigns
+          .filter((c) => c.id !== exclude)
+          .map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
       </select>
     </label>
   );

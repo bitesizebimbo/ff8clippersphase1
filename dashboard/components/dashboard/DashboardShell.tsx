@@ -3,9 +3,7 @@
 import { useMemo } from "react";
 import { useDashboardState } from "@/lib/use-dashboard-state";
 import {
-  getAllContent,
   getClassificationPerformance,
-  getContentById,
   getContentPerformance,
   getDashboardSummary,
   getFilterOptions,
@@ -13,7 +11,8 @@ import {
   getTotalContentCount,
   sortContent,
 } from "@/lib/data";
-import { CAMPAIGNS } from "@/lib/campaigns";
+import { findCampaignMeta, type CampaignMeta } from "@/lib/campaigns";
+import type { ContentItem } from "@/lib/types";
 import { DashboardHeader } from "./DashboardHeader";
 import { DateRangePicker } from "./DateRangePicker";
 import { CampaignSwitcher } from "./CampaignSwitcher";
@@ -25,42 +24,55 @@ import { ContentLibrary } from "./ContentLibrary";
 import { ContentDetailDrawer } from "./ContentDetailDrawer";
 import { CompareView } from "./CompareView";
 
-export function DashboardShell() {
-  const state = useDashboardState();
+export function DashboardShell({
+  content,
+  campaigns,
+}: {
+  content: ContentItem[];
+  campaigns: CampaignMeta[];
+}) {
+  const state = useDashboardState(content);
   const isAllMode = state.mode === "all";
   const campaignScope = useMemo(
     () => (isAllMode ? undefined : [state.activeCampaignId]),
     [isAllMode, state.activeCampaignId],
   );
 
-  const filterOptions = useMemo(() => getFilterOptions(campaignScope), [campaignScope]);
-  const totalUnfiltered = useMemo(() => getTotalContentCount(campaignScope), [campaignScope]);
+  const filterOptions = useMemo(
+    () => getFilterOptions(content, campaignScope),
+    [content, campaignScope],
+  );
+  const totalUnfiltered = useMemo(
+    () => getTotalContentCount(content, campaignScope),
+    [content, campaignScope],
+  );
 
   const filteredContent = useMemo(
-    () => getContentPerformance(state.filters),
-    [state.filters],
+    () => getContentPerformance(content, state.filters),
+    [content, state.filters],
   );
   const sortedContent = useMemo(
     () => sortContent(filteredContent, state.sortBy),
     [filteredContent, state.sortBy],
   );
   const summary = useMemo(
-    () => getDashboardSummary(state.filters),
-    [state.filters],
+    () => getDashboardSummary(content, state.filters),
+    [content, state.filters],
   );
   const timeline = useMemo(
-    () => getPerformanceTimeline(state.filters, state.chartGranularity),
-    [state.filters, state.chartGranularity],
+    () => getPerformanceTimeline(content, state.filters, state.chartGranularity),
+    [content, state.filters, state.chartGranularity],
   );
   const classificationBreakdown = useMemo(
-    () => getClassificationPerformance(state.classificationDimension, state.filters),
-    [state.classificationDimension, state.filters],
+    () => getClassificationPerformance(content, state.classificationDimension, state.filters),
+    [content, state.classificationDimension, state.filters],
   );
+  const contentById = useMemo(() => new Map(content.map((c) => [c.id, c])), [content]);
   const selectedContent = state.selectedContentId
-    ? (getContentById(state.selectedContentId) ?? null)
+    ? (contentById.get(state.selectedContentId) ?? null)
     : null;
 
-  const activeCampaignMeta = CAMPAIGNS.find((c) => c.id === state.activeCampaignId);
+  const activeCampaignMeta = findCampaignMeta(campaigns, state.activeCampaignId);
   const headerEyebrow =
     state.mode === "single" && activeCampaignMeta
       ? `${activeCampaignMeta.productLabel} · ${activeCampaignMeta.name}`
@@ -83,6 +95,7 @@ export function DashboardShell() {
       </DashboardHeader>
 
       <CampaignSwitcher
+        campaigns={campaigns}
         mode={state.mode}
         activeCampaignId={state.activeCampaignId}
         onModeChange={state.setMode}
@@ -91,7 +104,8 @@ export function DashboardShell() {
 
       {state.mode === "compare" ? (
         <CompareView
-          allContent={getAllContent()}
+          allContent={content}
+          campaigns={campaigns}
           campaignIds={state.compareCampaignIds}
           granularity={state.chartGranularity}
           metric={state.chartMetric}
@@ -106,6 +120,7 @@ export function DashboardShell() {
             filters={state.filters}
             hasActiveFilters={state.hasActiveFilters}
             showCampaignFilter={isAllMode}
+            campaigns={campaigns}
             onCampaignChange={state.setAllModeCampaigns}
             onProductChange={state.setProductFilter}
             onApproachChange={state.setApproachFilter}
@@ -128,6 +143,7 @@ export function DashboardShell() {
           <ClassificationPerformance
             dimension={state.classificationDimension}
             breakdown={classificationBreakdown}
+            campaigns={campaigns}
             showCampaignDimension={isAllMode}
             onDimensionChange={state.setClassificationDimension}
           />

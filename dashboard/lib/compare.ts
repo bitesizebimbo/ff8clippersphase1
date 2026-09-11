@@ -8,7 +8,7 @@
 // always well-defined.
 
 import { buildSummary, indexTimelineFromStart, toDailyRecords } from "./analytics";
-import { CAMPAIGNS, getCampaignMeta, type CampaignMeta } from "./campaigns";
+import { findCampaignMeta, type CampaignMeta } from "./campaigns";
 import type {
   CampaignComparisonRow,
   ChartGranularity,
@@ -26,17 +26,14 @@ export interface CampaignCompareEntry {
 /** Compare mode is capped at exactly two campaigns: a clean, unambiguous "A vs B" rather than an N-way table without a well-defined diff column. */
 export const MAX_COMPARE_CAMPAIGNS = 2;
 
-export function getComparableCampaigns(): CampaignMeta[] {
-  return CAMPAIGNS;
-}
-
 export function buildCampaignCompareEntries(
   allContent: ContentItem[],
+  campaigns: CampaignMeta[],
   campaignIds: string[],
   granularity: ChartGranularity,
 ): CampaignCompareEntry[] {
   return campaignIds.map((id) => {
-    const meta = getCampaignMeta(id);
+    const meta = findCampaignMeta(campaigns, id);
     if (!meta) throw new Error(`Unknown campaign id: ${id}`);
     const items = allContent.filter((c) => c.campaignId === id);
     const summary = buildSummary(items, null);

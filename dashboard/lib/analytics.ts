@@ -15,7 +15,6 @@ import type {
   TimelinePoint,
 } from "./types";
 import { formatShortDate } from "./formatters";
-import { getCampaignMeta } from "./campaigns";
 
 export function calculateTotalEngagements(record: {
   likes: number;
@@ -252,13 +251,11 @@ export function aggregateByClassification(
     if (list) list.push(item);
     else buckets.set(key, [item]);
   }
-  const labelFor =
-    dimension === "campaign"
-      ? (key: string) => getCampaignMeta(key)?.name ?? key
-      : (key: string) => key;
   return [...buckets.entries()]
-    .map(([rawKey, list]) => {
-      const key = labelFor(rawKey);
+    .map(([key, list]) => {
+      // For the "campaign" dimension, `key` is a campaignId — the caller
+      // (ClassificationPerformance) resolves it to a display name using the
+      // resolved campaign list, since that list isn't known here.
       const totals = sumEngagementInputs(list);
       const totalEngagements = calculateTotalEngagements(totals);
       return {

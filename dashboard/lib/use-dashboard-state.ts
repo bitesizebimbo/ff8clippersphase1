@@ -9,6 +9,7 @@ import type {
   ChartGranularity,
   ChartMetric,
   ClassificationDimension,
+  ContentItem,
   DashboardFilters,
   DashboardMode,
   DatePreset,
@@ -36,7 +37,7 @@ function parseList(v: string | null): string[] {
  * shareable link (e.g. ?platform=TikTok&range=last7&sort=engagementRate-desc)
  * with no separate client store to keep in sync.
  */
-export function useDashboardState() {
+export function useDashboardState(content: ContentItem[]) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -52,8 +53,11 @@ export function useDashboardState() {
   // Single mode is scoped to one campaign's own date bounds; All mode spans
   // every campaign. Compare mode ignores date bounds entirely (see lib/compare.ts).
   const dateBounds = useMemo(
-    () => (mode === "single" ? getDateBounds([activeCampaignId]) : getDateBounds()),
-    [mode, activeCampaignId],
+    () =>
+      mode === "single"
+        ? getDateBounds(content, [activeCampaignId])
+        : getDateBounds(content),
+    [content, mode, activeCampaignId],
   );
 
   const presetParam = (searchParams.get("range") as DatePreset) || DEFAULTS.range;

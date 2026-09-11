@@ -43,14 +43,24 @@ lib/
                         and record filtering.
   formatters.ts        Number/date/percent formatting (compact "12.4M" style,
                         exact values, signed deltas).
-  campaigns.ts          The campaign registry — add a campaign here (see
-                        "Adding a campaign" below).
+  campaigns.ts          The campaign registry — static + live sources (see
+                        "How data actually loads" below).
+  google-sheets.ts       Server-only: fetches one campaign's rows from a
+                        Google Sheet via a service account. Never throws —
+                        a misconfigured/unreachable sheet just means that
+                        campaign doesn't appear yet.
+  load-content.ts        Server-only: assembles the full content set for a
+                        request (static JSON + whichever live sheets
+                        actually returned data). The one place that knows
+                        where data comes from; called once from app/page.tsx.
   compare.ts             Compare-mode data assembly: per-campaign summaries
                         and an indexed ("Day 1, Day 2, ...") timeline so two
                         campaigns from different calendar periods can be
                         overlaid meaningfully.
-  data.ts               The data-access abstraction (see "Replacing mock
-                        data" below).
+  data.ts               Pure data-access functions, all taking a
+                        `content: ContentItem[]` parameter (see "Replacing
+                        mock data" below) — knows nothing about where
+                        content came from.
   use-dashboard-state.ts  Single hook holding all dashboard UI state, backed
                         by URL search params.
   utils.ts              `cn()` classname helper.
@@ -204,51 +214,91 @@ Three modes, all driven by the same underlying `ContentItem[]`:
   so campaigns from different periods still overlay meaningfully. Compare
   is disabled in the switcher until a second campaign is registered.
 
-### Adding a campaign
+### How data actually loads
+
+`app/page.tsx` is an async Server Component: it calls `loadAllContent()`
+(`lib/load-content.ts`) once per request (cached/revalidated — see below),
+which returns `{ content, campaigns }` and passes both down as props to
+`<DashboardShell>`. Every function in `lib/data.ts` is a pure transform over
+whatever `content: ContentItem[]` it's given — it holds no data of its own,
+so it doesn't matter whether that array came from a static JSON file, a live
+Google Sheet, or something else entirely.
+
+There are two kinds of campaign source, both defined in `lib/campaigns.ts`:
+
+- **`STATIC_CAMPAIGNS`** — data ships as a checked-in `data/campaigns/<id>.json`
+  file, imported directly. Always available, zero network calls.
+- **`LIVE_CAMPAIGN_SOURCES`** — data is fetched from a Google Sheet at
+  request time (`lib/google-sheets.ts`). A live campaign only appears in
+  `campaigns` (and therefore the switcher, All mode, Compare mode — nowhere
+  hardcodes a campaign list) once its sheet actually returns rows; a
+  misconfigured or unreachable sheet just means that campaign doesn't show
+  up yet, not a broken dashboard. Currently: **FF8 Clippers Phase 1** is
+  static; **Fold 8 Clippers Launch Phase 2** is live, reading the "performance
+  clippers" tab of its Google Sheet.
+
+#### Adding a static campaign
 
 1. Get its content into the same shape as `data/campaigns/ff8-clippers-phase1.json`
    (see `RawContentRecord` in `lib/types.ts`), stamped with a unique `campaignId`.
    `scripts/transform-csv.mjs` shows the pattern for a CSV source.
 2. Save it as `data/campaigns/<id>.json`.
-3. Register it in `lib/campaigns.ts` (`id`, `name`, `shortLabel`, `productLabel`).
-4. Import and add it to `CAMPAIGN_DATA` in `lib/data.ts`.
+3. Add it to `STATIC_CAMPAIGNS` in `lib/campaigns.ts` and import it into
+   `STATIC_CAMPAIGN_DATA` in `lib/load-content.ts`.
 
-That's it — the switcher, All mode's filter/classification dimension, and
-Compare mode all pick it up automatically; no other file needs to change.
+#### Adding a live (Google Sheet) campaign
+
+1. Add an entry to `LIVE_CAMPAIGN_SOURCES` in `lib/campaigns.ts` — `id`,
+   `name`, `shortLabel`, `productLabel`, and its `sheet: { spreadsheetId,
+   sheetName }`. The sheet's tab needs the same columns as
+   `EXPECTED_COLUMNS` in `lib/google-sheets.ts` (`No`, `Tanggal`, `Username`,
+   `Link Post`, `Views`, `Like`, `Comment`, `Save`, `Share`, `Product`,
+   `Approach`, `Content Type`, `Platform`) — a missing column logs a warning
+   and defaults to empty/zero rather than crashing.
+2. **One-time credential setup** (shared by every live campaign — do this
+   once, not per campaign):
+   - In Google Cloud Console, create a project (or use an existing one) and
+     enable the **Google Sheets API**.
+   - Create a **service account**, then create a **JSON key** for it.
+   - In Vercel project settings, add two environment variables from that
+     key: `GOOGLE_SHEETS_CLIENT_EMAIL` (the key's `client_email`) and
+     `GOOGLE_SHEETS_PRIVATE_KEY` (the key's `private_key`, including the
+     `BEGIN/END PRIVATE KEY` lines).
+   - **Share the Google Sheet itself** with that `client_email` (Viewer
+     access is enough) — this is what actually grants read access; the API
+     being enabled and the key existing aren't sufficient on their own.
+3. Redeploy (or wait for the next revalidation window). That's it — no
+   other file changes for a second, third, etc. live campaign as long as it
+   uses the same column layout.
+
+Live data is fetched with a 5-minute revalidation window
+(`export const revalidate = 300` in `app/page.tsx`, and the same value on
+the `fetch()` call in `lib/google-sheets.ts`) — a page load never waits
+longer than that for a sheet edit to show up.
 
 ## Replacing mock data with a real API
 
-Every screen reads through `lib/data.ts` — never through a campaign's JSON
-file directly:
+Every screen reads through `lib/data.ts`'s pure functions, all taking
+`content: ContentItem[]` as their first argument:
 
 ```ts
-getDashboardSummary(filters)
-getContentPerformance(filters)
-getPerformanceTimeline(filters, granularity)
-getClassificationPerformance(dimension, filters)
-getContentById(id)
-getFilterOptions(campaignIds?)
-getDateBounds(campaignIds?)
-getAllContent()
+getDashboardSummary(content, filters)
+getContentPerformance(content, filters)
+getPerformanceTimeline(content, filters, granularity)
+getClassificationPerformance(content, dimension, filters)
+getFilterOptions(content, campaignIds?)
+getDateBounds(content, campaignIds?)
 ```
 
-To swap a campaign's local JSON for a live backend (REST, Supabase,
-BigQuery, Google Sheets, Airtable, ...):
-
-1. Replace that entry in `CAMPAIGN_DATA` (in `lib/data.ts`) with a fetch
-   call (e.g. move the exported functions into async Server Actions or
-   `route.ts` handlers that hit your API, or fetch once in a Server
-   Component and pass the array down, revalidating on an interval for
-   "auto-updating" data).
-2. Keep every function's signature the same — `DashboardShell` and every
-   child component only depend on these function signatures and the types
-   in `lib/types.ts`, not on any JSON file.
-3. If your API starts providing true daily observations per content item,
-   populate `DailyPerformanceRecord[]` accordingly (one entry per
-   `contentId` per observation date) — `aggregateByDate`/`aggregateByWeek`
-   in `lib/analytics.ts` need no changes.
-4. To re-derive a campaign's JSON from a refreshed raw export in the
-   meantime, edit and re-run `scripts/transform-csv.mjs`.
+To add a source beyond Google Sheets (REST, Supabase, BigQuery, Airtable,
+...): write a `fetchXRecords()` alongside `fetchSheetCampaignRecords()` that
+returns `RawContentRecord[]`, call it from `loadAllContent()` in
+`lib/load-content.ts` the same way, and merge its results in. Nothing in
+`lib/data.ts` or any component needs to change — they only ever see the
+resulting `ContentItem[]`. If your source provides true daily observations
+per content item, populate `DailyPerformanceRecord[]` accordingly (one entry
+per `contentId` per observation date) — `aggregateByDate`/`aggregateByWeek`
+in `lib/analytics.ts` need no changes either way.
 
 ## Notes
 
