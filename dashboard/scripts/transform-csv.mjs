@@ -9,7 +9,8 @@ import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CSV_PATH = path.join(__dirname, "../../wiki/data/ff8_clippers_phase1.csv");
-const OUT_PATH = path.join(__dirname, "../data/content.json");
+const OUT_PATH = path.join(__dirname, "../data/campaigns/ff8-clippers-phase1.json");
+const CAMPAIGN_ID = "ff8-clippers-phase1";
 
 function parseCsv(text) {
   const rows = [];
@@ -87,6 +88,7 @@ const items = rows.slice(1).map((r) => {
 
   return {
     id: `ff8-${no}`,
+    campaignId: CAMPAIGN_ID,
     title: `${contentType} · ${product}`,
     caption: `@${username} on ${platform}`,
     creator: username,

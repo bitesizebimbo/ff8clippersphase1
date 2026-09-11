@@ -1,28 +1,35 @@
 // Data-access abstraction. Every screen reads through these functions, never
-// through data/content.json directly — so the local JSON file can later be
-// swapped for a REST API, Supabase, BigQuery, Google Sheets, etc. without
-// touching a single component. See README.md "Replacing mock data".
+// through a campaign's JSON file directly — so a local file can later be
+// swapped for a live Google Sheet, REST API, Supabase, BigQuery, etc.
+// without touching a single component. See README.md "Replacing mock data".
+//
+// Adding a campaign: register it in lib/campaigns.ts, add its raw records to
+// CAMPAIGN_DATA below (each stamped with that campaign's id), and every
+// function here — plus the switcher, All mode, and Compare mode — picks it
+// up automatically.
 
-import rawContent from "@/data/content.json";
+import ff8Phase1Raw from "@/data/campaigns/ff8-clippers-phase1.json";
 import {
   aggregateByClassification,
   buildSummary,
   buildTimeline,
   toContentItem,
+  toDailyRecords,
 } from "./analytics";
+import { CAMPAIGNS } from "./campaigns";
 import {
   filterContent,
   filterPerformanceByDate,
   getDatasetBounds,
   resolveDatePreset,
   resolvePreviousPeriod,
+  type DatasetBounds,
 } from "./filters";
 import type {
   ChartGranularity,
   ClassificationBreakdown,
   ClassificationDimension,
   ContentItem,
-  DailyPerformanceRecord,
   DashboardFilters,
   DashboardSummary,
   DatePreset,
@@ -32,34 +39,34 @@ import type {
   TimelinePoint,
 } from "./types";
 
-const CONTENT: ContentItem[] = (rawContent as RawContentRecord[]).map(
-  toContentItem,
+const CAMPAIGN_DATA: Record<string, RawContentRecord[]> = {
+  "ff8-clippers-phase1": ff8Phase1Raw as RawContentRecord[],
+};
+
+const ALL_CONTENT: ContentItem[] = CAMPAIGNS.flatMap((c) =>
+  (CAMPAIGN_DATA[c.id] ?? []).map(toContentItem),
 );
 
-// Each content item currently yields exactly one observation dated at its
-// publishDate (see DailyPerformanceRecord doc comment in lib/types.ts).
-const DAILY_RECORDS: DailyPerformanceRecord[] = CONTENT.map((item) => ({
-  date: item.publishDate,
-  contentId: item.id,
-  views: item.views,
-  likes: item.likes,
-  comments: item.comments,
-  shares: item.shares,
-  saves: item.saves,
-}));
+const CONTENT_BY_ID = new Map(ALL_CONTENT.map((item) => [item.id, item]));
+const GLOBAL_BOUNDS = getDatasetBounds(ALL_CONTENT);
 
-const CONTENT_BY_ID = new Map(CONTENT.map((item) => [item.id, item]));
-const DATASET_BOUNDS = getDatasetBounds(CONTENT);
+function scopeToContent(campaignIds?: string[]): ContentItem[] {
+  if (!campaignIds || campaignIds.length === 0) return ALL_CONTENT;
+  return ALL_CONTENT.filter((item) => campaignIds.includes(item.campaignId));
+}
 
-export function getDatasetDateBounds() {
-  return DATASET_BOUNDS;
+/** Global bounds when no campaign is given (used by All mode); a single campaign's own bounds otherwise (used by Single mode). */
+export function getDateBounds(campaignIds?: string[]): DatasetBounds {
+  if (!campaignIds || campaignIds.length === 0) return GLOBAL_BOUNDS;
+  return getDatasetBounds(scopeToContent(campaignIds));
 }
 
 export function resolveDateRange(
   preset: DatePreset,
-  custom?: { start: string; end: string },
+  custom: { start: string; end: string } | undefined,
+  bounds: DatasetBounds,
 ): DateRange {
-  return resolveDatePreset(preset, DATASET_BOUNDS, custom);
+  return resolveDatePreset(preset, bounds, custom);
 }
 
 export interface FilterOptions {
@@ -69,12 +76,13 @@ export interface FilterOptions {
   platform: string[];
 }
 
-export function getFilterOptions(): FilterOptions {
+export function getFilterOptions(campaignIds?: string[]): FilterOptions {
+  const scoped = scopeToContent(campaignIds);
   return {
-    product: uniqueSorted(CONTENT.map((c) => c.product)),
-    approach: uniqueSorted(CONTENT.map((c) => c.approach)),
-    contentType: uniqueSorted(CONTENT.map((c) => c.contentType)),
-    platform: uniqueSorted(CONTENT.map((c) => c.platform)),
+    product: uniqueSorted(scoped.map((c) => c.product)),
+    approach: uniqueSorted(scoped.map((c) => c.approach)),
+    contentType: uniqueSorted(scoped.map((c) => c.contentType)),
+    platform: uniqueSorted(scoped.map((c) => c.platform)),
   };
 }
 
@@ -83,7 +91,7 @@ function uniqueSorted(values: string[]): string[] {
 }
 
 export function getContentPerformance(filters: DashboardFilters): ContentItem[] {
-  return filterContent(CONTENT, filters);
+  return filterContent(ALL_CONTENT, filters);
 }
 
 export function sortContent(
@@ -108,11 +116,12 @@ export function sortContent(
 }
 
 export function getDashboardSummary(filters: DashboardFilters): DashboardSummary {
-  const current = filterContent(CONTENT, filters);
+  const current = filterContent(ALL_CONTENT, filters);
 
-  const previousRange = resolvePreviousPeriod(filters.dateRange, DATASET_BOUNDS);
+  const bounds = getDateBounds(filters.campaign);
+  const previousRange = resolvePreviousPeriod(filters.dateRange, bounds);
   const previous = previousRange
-    ? filterContent(CONTENT, { ...filters, dateRange: previousRange })
+    ? filterContent(ALL_CONTENT, { ...filters, dateRange: previousRange })
     : null;
 
   return buildSummary(current, previous);
@@ -122,9 +131,10 @@ export function getPerformanceTimeline(
   filters: DashboardFilters,
   granularity: ChartGranularity,
 ): TimelinePoint[] {
-  const matchingIds = new Set(filterContent(CONTENT, filters).map((c) => c.id));
+  const matching = filterContent(ALL_CONTENT, filters);
+  const matchingIds = new Set(matching.map((c) => c.id));
   const records = filterPerformanceByDate(
-    DAILY_RECORDS.filter((r) => matchingIds.has(r.contentId)),
+    toDailyRecords(ALL_CONTENT).filter((r) => matchingIds.has(r.contentId)),
     filters.dateRange,
   );
   return buildTimeline(records, granularity);
@@ -134,7 +144,7 @@ export function getClassificationPerformance(
   dimension: ClassificationDimension,
   filters: DashboardFilters,
 ): ClassificationBreakdown[] {
-  const current = filterContent(CONTENT, filters);
+  const current = filterContent(ALL_CONTENT, filters);
   return aggregateByClassification(current, dimension);
 }
 
@@ -142,6 +152,10 @@ export function getContentById(id: string): ContentItem | undefined {
   return CONTENT_BY_ID.get(id);
 }
 
-export function getTotalContentCount(): number {
-  return CONTENT.length;
+export function getTotalContentCount(campaignIds?: string[]): number {
+  return scopeToContent(campaignIds).length;
+}
+
+export function getAllContent(): ContentItem[] {
+  return ALL_CONTENT;
 }

@@ -127,6 +127,7 @@ export function filterContent(
   const search = filters.search.trim().toLowerCase();
   return items.filter((item) => {
     if (!isWithinRange(item.publishDate, filters.dateRange)) return false;
+    if (filters.campaign.length && !filters.campaign.includes(item.campaignId)) return false;
     if (filters.product.length && !filters.product.includes(item.product)) return false;
     if (filters.approach.length && !filters.approach.includes(item.approach)) return false;
     if (

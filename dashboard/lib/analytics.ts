@@ -15,6 +15,7 @@ import type {
   TimelinePoint,
 } from "./types";
 import { formatShortDate } from "./formatters";
+import { getCampaignMeta } from "./campaigns";
 
 export function calculateTotalEngagements(record: {
   likes: number;
@@ -187,11 +188,56 @@ export function timelinePointValue(
   }
 }
 
+export function toDailyRecords(items: ContentItem[]): DailyPerformanceRecord[] {
+  return items.map((item) => ({
+    date: item.publishDate,
+    contentId: item.id,
+    views: item.views,
+    likes: item.likes,
+    comments: item.comments,
+    shares: item.shares,
+    saves: item.saves,
+  }));
+}
+
+/**
+ * Re-labels a timeline as "Day 1", "Day 2", ... (or "Week 1", "Week 2", ...)
+ * relative to its own first bucket, instead of absolute calendar dates.
+ *
+ * Used only for Compare mode: two campaigns rarely run in the same calendar
+ * window, so overlaying them by absolute date would misrepresent how far
+ * into each campaign a given point sits. Indexing to "days/weeks since
+ * start" is the same "index to a common base" move as normalizing two
+ * differently-scaled series — it's what makes a single shared x-axis
+ * meaningful across campaigns.
+ */
+export function indexTimelineFromStart(
+  records: DailyPerformanceRecord[],
+  granularity: ChartGranularity,
+): TimelinePoint[] {
+  const points = buildTimeline(records, granularity);
+  if (points.length === 0) return points;
+  const start = points[0].bucketStart;
+  return points.map((p) => {
+    const elapsedDays = daysBetweenIso(start, p.bucketStart);
+    const label =
+      granularity === "weekly" ? `Week ${Math.round(elapsedDays / 7) + 1}` : `Day ${elapsedDays + 1}`;
+    return { ...p, label };
+  });
+}
+
+function daysBetweenIso(startIso: string, endIso: string): number {
+  const start = new Date(`${startIso}T00:00:00`).getTime();
+  const end = new Date(`${endIso}T00:00:00`).getTime();
+  return Math.round((end - start) / 86_400_000);
+}
+
 const DIMENSION_KEY: Record<ClassificationDimension, keyof ContentItem> = {
   product: "product",
   approach: "approach",
   contentType: "contentType",
   platform: "platform",
+  campaign: "campaignId",
 };
 
 export function aggregateByClassification(
@@ -206,8 +252,13 @@ export function aggregateByClassification(
     if (list) list.push(item);
     else buckets.set(key, [item]);
   }
+  const labelFor =
+    dimension === "campaign"
+      ? (key: string) => getCampaignMeta(key)?.name ?? key
+      : (key: string) => key;
   return [...buckets.entries()]
-    .map(([key, list]) => {
+    .map(([rawKey, list]) => {
+      const key = labelFor(rawKey);
       const totals = sumEngagementInputs(list);
       const totalEngagements = calculateTotalEngagements(totals);
       return {

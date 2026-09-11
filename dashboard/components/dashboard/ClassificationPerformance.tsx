@@ -9,23 +9,29 @@ import {
 import type { ClassificationBreakdown, ClassificationDimension } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
 
-const DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
+const BASE_DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
   { id: "product", label: "Product" },
   { id: "approach", label: "Approach" },
   { id: "contentType", label: "Content Type" },
   { id: "platform", label: "Platform" },
 ];
+const CAMPAIGN_DIMENSION = { id: "campaign" as ClassificationDimension, label: "Campaign" };
 
 export function ClassificationPerformance({
   dimension,
   breakdown,
+  showCampaignDimension,
   onDimensionChange,
 }: {
   dimension: ClassificationDimension;
   breakdown: ClassificationBreakdown[];
+  showCampaignDimension?: boolean;
   onDimensionChange: (d: ClassificationDimension) => void;
 }) {
   const maxViews = Math.max(1, ...breakdown.map((b) => b.views));
+  const dimensions = showCampaignDimension
+    ? [...BASE_DIMENSIONS, CAMPAIGN_DIMENSION]
+    : BASE_DIMENSIONS;
 
   return (
     <section className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 sm:p-5">
@@ -40,7 +46,7 @@ export function ClassificationPerformance({
         </div>
         <Tabs value={dimension} onValueChange={(v) => onDimensionChange(v as ClassificationDimension)}>
           <TabsList>
-            {DIMENSIONS.map((d) => (
+            {dimensions.map((d) => (
               <TabsTrigger key={d.id} value={d.id}>
                 {d.label}
               </TabsTrigger>

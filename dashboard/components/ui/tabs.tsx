@@ -30,6 +30,7 @@ export function TabsTrigger({
         "shrink-0 whitespace-nowrap rounded-[calc(var(--radius-md)-4px)] px-3 py-1.5 text-sm font-medium text-foreground-muted transition-colors",
         "hover:text-foreground",
         "data-[state=active]:bg-surface data-[state=active]:text-foreground data-[state=active]:shadow-[var(--shadow-card)]",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
         className,
       )}
       {...props}

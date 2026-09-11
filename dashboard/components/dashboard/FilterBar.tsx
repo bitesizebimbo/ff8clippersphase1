@@ -3,6 +3,7 @@
 import { Search, X } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
+import { CAMPAIGNS } from "@/lib/campaigns";
 import type { FilterOptions } from "@/lib/data";
 import type { DashboardFilters } from "@/lib/types";
 
@@ -10,6 +11,8 @@ export function FilterBar({
   options,
   filters,
   hasActiveFilters,
+  showCampaignFilter,
+  onCampaignChange,
   onProductChange,
   onApproachChange,
   onContentTypeChange,
@@ -20,6 +23,8 @@ export function FilterBar({
   options: FilterOptions;
   filters: DashboardFilters;
   hasActiveFilters: boolean;
+  showCampaignFilter?: boolean;
+  onCampaignChange?: (v: string[]) => void;
   onProductChange: (v: string[]) => void;
   onApproachChange: (v: string[]) => void;
   onContentTypeChange: (v: string[]) => void;
@@ -27,9 +32,22 @@ export function FilterBar({
   onSearchChange: (v: string) => void;
   onClear: () => void;
 }) {
+  const campaignNameById = new Map(CAMPAIGNS.map((c) => [c.id, c.name]));
+  const campaignIdByName = new Map(CAMPAIGNS.map((c) => [c.name, c.id]));
+
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-border bg-surface p-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="scrollbar-thin flex items-end gap-3 overflow-x-auto pb-1 sm:pb-0">
+        {showCampaignFilter && (
+          <MultiSelect
+            label="Campaign"
+            options={CAMPAIGNS.map((c) => c.name)}
+            selected={filters.campaign.map((id) => campaignNameById.get(id) ?? id)}
+            onChange={(names) =>
+              onCampaignChange?.(names.map((name) => campaignIdByName.get(name) ?? name))
+            }
+          />
+        )}
         <MultiSelect
           label="Product"
           options={options.product}

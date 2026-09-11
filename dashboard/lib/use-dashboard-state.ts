@@ -2,18 +2,22 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { resolveDateRange } from "./data";
+import { getDateBounds, resolveDateRange } from "./data";
+import { DEFAULT_CAMPAIGN_ID } from "./campaigns";
+import { MAX_COMPARE_CAMPAIGNS } from "./compare";
 import type {
   ChartGranularity,
   ChartMetric,
   ClassificationDimension,
   DashboardFilters,
+  DashboardMode,
   DatePreset,
   SortOption,
   ViewMode,
 } from "./types";
 
 const DEFAULTS = {
+  mode: "single" as DashboardMode,
   range: "all" as DatePreset,
   granularity: "daily" as ChartGranularity,
   metric: "views" as ChartMetric,
@@ -37,27 +41,46 @@ export function useDashboardState() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const mode = (searchParams.get("mode") as DashboardMode) || DEFAULTS.mode;
+  const activeCampaignId = searchParams.get("campaign") || DEFAULT_CAMPAIGN_ID;
+  const allModeCampaigns = parseList(searchParams.get("campaigns"));
+  const compareCampaignIds = parseList(searchParams.get("compare")).slice(
+    0,
+    MAX_COMPARE_CAMPAIGNS,
+  );
+
+  // Single mode is scoped to one campaign's own date bounds; All mode spans
+  // every campaign. Compare mode ignores date bounds entirely (see lib/compare.ts).
+  const dateBounds = useMemo(
+    () => (mode === "single" ? getDateBounds([activeCampaignId]) : getDateBounds()),
+    [mode, activeCampaignId],
+  );
+
   const presetParam = (searchParams.get("range") as DatePreset) || DEFAULTS.range;
   const customStart = searchParams.get("start");
   const customEnd = searchParams.get("end");
 
   const dateRange = useMemo(() => {
     if (presetParam === "custom" && customStart && customEnd) {
-      return resolveDateRange("custom", { start: customStart, end: customEnd });
+      return resolveDateRange("custom", { start: customStart, end: customEnd }, dateBounds);
     }
-    return resolveDateRange(presetParam);
-  }, [presetParam, customStart, customEnd]);
+    return resolveDateRange(presetParam, undefined, dateBounds);
+  }, [presetParam, customStart, customEnd, dateBounds]);
+
+  const campaignFilter = mode === "single" ? [activeCampaignId] : allModeCampaigns;
 
   const filters: DashboardFilters = useMemo(
     () => ({
       dateRange,
+      campaign: campaignFilter,
       product: parseList(searchParams.get("product")),
       approach: parseList(searchParams.get("approach")),
       contentType: parseList(searchParams.get("type")),
       platform: parseList(searchParams.get("platform")),
       search: searchParams.get("q") ?? "",
     }),
-    [dateRange, searchParams],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dateRange, searchParams, mode, activeCampaignId],
   );
 
   const chartGranularity =
@@ -88,9 +111,15 @@ export function useDashboardState() {
     filters.contentType.length > 0 ||
     filters.platform.length > 0 ||
     filters.search.length > 0 ||
-    presetParam !== "all";
+    presetParam !== "all" ||
+    (mode === "all" && allModeCampaigns.length > 0);
 
   return {
+    mode,
+    activeCampaignId,
+    allModeCampaigns,
+    compareCampaignIds,
+    dateBounds,
     filters,
     dateRangePreset: presetParam,
     chartGranularity,
@@ -101,6 +130,11 @@ export function useDashboardState() {
     selectedContentId,
     hasActiveFilters,
 
+    setMode: (m: DashboardMode) => setParams({ mode: m === "single" ? null : m }),
+    setActiveCampaignId: (id: string) => setParams({ campaign: id }),
+    setAllModeCampaigns: (ids: string[]) => setParams({ campaigns: ids.join(",") || null }),
+    setCompareCampaignIds: (ids: string[]) =>
+      setParams({ compare: ids.slice(0, MAX_COMPARE_CAMPAIGNS).join(",") || null }),
     setDateRangePreset: (preset: DatePreset) =>
       setParams({ range: preset, start: null, end: null }),
     setCustomDateRange: (start: string, end: string) =>
@@ -126,6 +160,7 @@ export function useDashboardState() {
         range: null,
         start: null,
         end: null,
+        campaigns: null,
       }),
   };
 }
