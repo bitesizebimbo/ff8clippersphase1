@@ -20,14 +20,10 @@ export interface CampaignMeta {
   productLabel: string;
 }
 
-export const STATIC_CAMPAIGNS: CampaignMeta[] = [
-  {
-    id: "ff8-clippers-phase1",
-    name: "FF8 Clippers Phase 1",
-    shortLabel: "FF8 Phase 1",
-    productLabel: "Samsung Galaxy Z Fold8 / Z Flip8",
-  },
-];
+// No campaigns are static right now — FF8 Phase 1 moved to a live sheet
+// below. Kept as an array (not removed) since a future campaign may again
+// ship as checked-in JSON, and nothing else needs to change to support that.
+export const STATIC_CAMPAIGNS: CampaignMeta[] = [];
 
 export interface LiveCampaignSource extends CampaignMeta {
   sheet: {
@@ -37,6 +33,16 @@ export interface LiveCampaignSource extends CampaignMeta {
 }
 
 export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
+  {
+    id: "ff8-clippers-phase1",
+    name: "FF8 Clippers Phase 1",
+    shortLabel: "FF8 Phase 1",
+    productLabel: "Samsung Galaxy Z Fold8 / Z Flip8",
+    sheet: {
+      spreadsheetId: "1WhaIbd4rQERTSAskXcTAuBssXpdJe0VN1Q0UKcuAE-8",
+      sheetName: "Performance CORRECT CLAUDE",
+    },
+  },
   {
     id: "fold8-clippers-phase2",
     name: "Fold 8 Clippers Launch Phase 2",
@@ -76,4 +82,20 @@ export function findCampaignMeta(
   return campaigns.find((c) => c.id === id);
 }
 
-export const DEFAULT_CAMPAIGN_ID = STATIC_CAMPAIGNS[0].id;
+// A *preference*, not a guarantee — every campaign is now fetched live, so
+// none is guaranteed to have loaded successfully for any given request. See
+// resolveDefaultCampaignId, which is what code should actually call.
+const PREFERRED_DEFAULT_CAMPAIGN_ID = "ff8-clippers-phase1";
+
+/**
+ * The campaign Single mode should default to: the preferred one if it
+ * actually loaded this request, otherwise whichever campaign did load, so
+ * the dashboard never defaults to an empty view over one failed fetch.
+ * Returns null only when nothing loaded at all.
+ */
+export function resolveDefaultCampaignId(campaigns: CampaignMeta[]): string | null {
+  if (campaigns.some((c) => c.id === PREFERRED_DEFAULT_CAMPAIGN_ID)) {
+    return PREFERRED_DEFAULT_CAMPAIGN_ID;
+  }
+  return campaigns[0]?.id ?? null;
+}
