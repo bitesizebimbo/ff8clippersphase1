@@ -17,10 +17,13 @@ const PLATFORM_MAP: Record<string, string> = {
   Youtube: "YouTube",
 };
 
+// Required: the dashboard can't do much without these. "No" and "Tanggal"
+// also accept a newer schema's names via COLUMN_ALIASES below — every
+// campaign sheet in use right now uses "Content ID"/"Date" rather than the
+// original "No"/"Tanggal".
 const EXPECTED_COLUMNS = [
   "No",
   "Tanggal",
-  "Username",
   "Link Post",
   "Views",
   "Like",
@@ -28,10 +31,55 @@ const EXPECTED_COLUMNS = [
   "Save",
   "Share",
   "Product",
-  "Approach",
   "Content Type",
   "Platform",
 ];
+
+// "Username" and "Approach" are read when present (str() below already
+// defaults to "" for any column that isn't found) but aren't in
+// EXPECTED_COLUMNS — several campaigns' sheets simply don't track these, and
+// that's not worth warning about.
+
+// Column names some sheets use instead of our canonical ones. Checked in
+// order after the canonical name itself.
+const COLUMN_ALIASES: Record<string, string[]> = {
+  No: ["Content ID"],
+  Tanggal: ["Date"],
+};
+
+const MONTH_ABBR: Record<string, string> = {
+  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+};
+
+// publishDate must end up as an ISO "YYYY-MM-DD" string — every date
+// comparison in the app (range filters, chart bucketing) assumes that
+// format. The Sheets API returns a date cell's *formatted display value*
+// (e.g. "24-Aug-26"), not an ISO string, so it needs normalizing here
+// rather than at every call site.
+function normalizeDateValue(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+
+  const dMonY = trimmed.match(/^(\d{1,2})[-/]([A-Za-z]{3,})[-/](\d{2,4})$/);
+  if (dMonY) {
+    const [, day, monName, yearRaw] = dMonY;
+    const month = MONTH_ABBR[monName.slice(0, 3).toLowerCase()];
+    if (month) {
+      const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
+      return `${year}-${month}-${day.padStart(2, "0")}`;
+    }
+  }
+
+  // Fallback for other formats (e.g. "8/24/2026", "Aug 24, 2026").
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  return trimmed;
+}
 
 // A1 notation requires a sheet name to be single-quoted whenever it isn't a
 // bare alphanumeric/underscore identifier (spaces, punctuation, a leading
@@ -142,7 +190,15 @@ function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecor
     idx[normalizeHeader(h)] = i;
   });
 
-  const missing = EXPECTED_COLUMNS.filter((col) => !(normalizeHeader(col) in idx));
+  const resolveIndex = (key: string): number | undefined => {
+    for (const name of [key, ...(COLUMN_ALIASES[key] ?? [])]) {
+      const i = idx[normalizeHeader(name)];
+      if (i !== undefined) return i;
+    }
+    return undefined;
+  };
+
+  const missing = EXPECTED_COLUMNS.filter((col) => resolveIndex(col) === undefined);
   if (missing.length > 0) {
     console.warn(
       `[google-sheets] campaign "${campaignId}": missing expected column(s): ${missing.join(", ")}. ` +
@@ -151,7 +207,7 @@ function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecor
   }
 
   const str = (row: string[], key: string): string => {
-    const i = idx[normalizeHeader(key)];
+    const i = resolveIndex(key);
     return i !== undefined ? (row[i] ?? "").trim() : "";
   };
   const num = (row: string[], key: string): number => {
@@ -176,11 +232,11 @@ function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecor
         id: `${campaignId}-${rowNo}`,
         campaignId,
         title: `${contentType} · ${product}`,
-        caption: `@${username} on ${platform}`,
+        caption: username ? `@${username} on ${platform}` : `${platform} post`,
         creator: username,
         platform,
         contentUrl: str(row, "Link Post").replace(/\.+$/, ""),
-        publishDate: str(row, "Tanggal"),
+        publishDate: normalizeDateValue(str(row, "Tanggal")),
         product,
         approach,
         contentType,
