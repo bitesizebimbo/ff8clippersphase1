@@ -117,16 +117,23 @@ export async function fetchSheetCampaignRecords(
   return mapRowsToRecords(data.values ?? [], source.campaignId);
 }
 
+// Header matching is case/whitespace-insensitive: "Content Type", "content type",
+// and "Content  Type" (double space) all resolve to the same column. Sheets
+// get hand-edited by different people over time, and a cosmetic header
+// difference shouldn't be able to silently zero out a whole column.
+function normalizeHeader(h: string): string {
+  return h.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecord[] {
   if (rows.length < 2) return [];
 
-  const header = rows[0].map((h) => h.trim());
   const idx: Record<string, number> = {};
-  header.forEach((h, i) => {
-    idx[h] = i;
+  rows[0].forEach((h, i) => {
+    idx[normalizeHeader(h)] = i;
   });
 
-  const missing = EXPECTED_COLUMNS.filter((col) => !(col in idx));
+  const missing = EXPECTED_COLUMNS.filter((col) => !(normalizeHeader(col) in idx));
   if (missing.length > 0) {
     console.warn(
       `[google-sheets] campaign "${campaignId}": missing expected column(s): ${missing.join(", ")}. ` +
@@ -134,8 +141,10 @@ function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecor
     );
   }
 
-  const str = (row: string[], key: string): string =>
-    idx[key] !== undefined ? (row[idx[key]] ?? "").trim() : "";
+  const str = (row: string[], key: string): string => {
+    const i = idx[normalizeHeader(key)];
+    return i !== undefined ? (row[i] ?? "").trim() : "";
+  };
   const num = (row: string[], key: string): number => {
     const v = str(row, key);
     if (v === "") return 0;
