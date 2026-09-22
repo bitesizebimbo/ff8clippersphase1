@@ -146,9 +146,18 @@ export async function fetchSheetCampaignRecords(
   }
   if (!accessToken) return [];
 
+  // valueRenderOption=UNFORMATTED_VALUE: numeric cells come back as actual
+  // numbers rather than their display text — without this, a cell showing
+  // "412,100" arrives as the literal string "412,100", which Number()
+  // rejects (comma) and we'd silently count as 0. dateTimeRenderOption is
+  // only consulted when valueRenderOption isn't FORMATTED_VALUE; setting it
+  // to FORMATTED_STRING keeps dates as readable text (e.g. "24-Aug-26")
+  // instead of a raw Sheets serial-number, so normalizeDateValue below still
+  // has a parseable string to work with.
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${source.spreadsheetId}` +
-    `/values/${encodeURIComponent(toA1SheetRange(source.sheetName))}`;
+    `/values/${encodeURIComponent(toA1SheetRange(source.sheetName))}` +
+    `?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
 
   let res: Response;
   try {
@@ -170,8 +179,19 @@ export async function fetchSheetCampaignRecords(
     return [];
   }
 
-  const data = (await res.json()) as { values?: string[][] };
+  const data = (await res.json()) as { values?: SheetCellValue[][] };
   return mapRowsToRecords(data.values ?? [], source.campaignId);
+}
+
+// With valueRenderOption=UNFORMATTED_VALUE, a numeric cell is a JSON number
+// and a checkbox cell is a JSON boolean — only text cells come back as
+// strings. Every cell gets normalized to a trimmed string via cellToString
+// before use.
+type SheetCellValue = string | number | boolean | null;
+
+function cellToString(cell: SheetCellValue | undefined): string {
+  if (cell === undefined || cell === null) return "";
+  return String(cell).trim();
 }
 
 // Header matching is case/whitespace-insensitive: "Content Type", "content type",
@@ -182,12 +202,12 @@ function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecord[] {
+function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawContentRecord[] {
   if (rows.length < 2) return [];
 
   const idx: Record<string, number> = {};
   rows[0].forEach((h, i) => {
-    idx[normalizeHeader(h)] = i;
+    idx[normalizeHeader(cellToString(h))] = i;
   });
 
   const resolveIndex = (key: string): number | undefined => {
@@ -206,20 +226,20 @@ function mapRowsToRecords(rows: string[][], campaignId: string): RawContentRecor
     );
   }
 
-  const str = (row: string[], key: string): string => {
+  const str = (row: SheetCellValue[], key: string): string => {
     const i = resolveIndex(key);
-    return i !== undefined ? (row[i] ?? "").trim() : "";
+    return i !== undefined ? cellToString(row[i]) : "";
   };
-  const num = (row: string[], key: string): number => {
+  const num = (row: SheetCellValue[], key: string): number => {
     const v = str(row, key);
     if (v === "") return 0;
-    const n = Number(v);
+    const n = Number(v.replace(/,/g, ""));
     return Number.isFinite(n) ? n : 0;
   };
 
   return rows
     .slice(1)
-    .filter((row) => row.some((cell) => cell.trim() !== ""))
+    .filter((row) => row.some((cell) => cellToString(cell) !== ""))
     .map((row, i) => {
       const rowNo = str(row, "No") || String(i + 1);
       const platform = PLATFORM_MAP[str(row, "Platform")] ?? str(row, "Platform");
