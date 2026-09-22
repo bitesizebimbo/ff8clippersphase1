@@ -31,7 +31,7 @@ export function DashboardShell({
   content: ContentItem[];
   campaigns: CampaignMeta[];
 }) {
-  const state = useDashboardState(content);
+  const state = useDashboardState(content, campaigns);
   const isAllMode = state.mode === "all";
   const campaignScope = useMemo(
     () => (isAllMode ? undefined : [state.activeCampaignId]),
@@ -74,11 +74,13 @@ export function DashboardShell({
 
   const activeCampaignMeta = findCampaignMeta(campaigns, state.activeCampaignId);
   const headerEyebrow =
-    state.mode === "single" && activeCampaignMeta
-      ? `${activeCampaignMeta.productLabel} · ${activeCampaignMeta.name}`
-      : state.mode === "all"
-        ? "All Campaigns"
-        : "Compare Campaigns";
+    state.mode === "all"
+      ? "All Campaigns"
+      : state.mode === "compare"
+        ? "Compare Campaigns"
+        : activeCampaignMeta
+          ? `${activeCampaignMeta.productLabel} · ${activeCampaignMeta.name}`
+          : "No Campaign Data";
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">

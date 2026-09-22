@@ -1,14 +1,14 @@
 import "server-only";
 
-import ff8Phase1Raw from "@/data/campaigns/ff8-clippers-phase1.json";
 import { toContentItem } from "./analytics";
 import { LIVE_CAMPAIGN_SOURCES, STATIC_CAMPAIGNS, type CampaignMeta } from "./campaigns";
 import { fetchSheetCampaignRecords } from "./google-sheets";
 import type { ContentItem, RawContentRecord } from "./types";
 
-const STATIC_CAMPAIGN_DATA: Record<string, RawContentRecord[]> = {
-  "ff8-clippers-phase1": ff8Phase1Raw as RawContentRecord[],
-};
+// No campaign currently ships as checked-in JSON (FF8 Phase 1 moved to a
+// live sheet — see lib/campaigns.ts). Import a campaign's data/campaigns/
+// <id>.json here and add an entry when one does.
+const STATIC_CAMPAIGN_DATA: Record<string, RawContentRecord[]> = {};
 
 export interface LoadedDashboardData {
   content: ContentItem[];

@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getDateBounds, resolveDateRange } from "./data";
-import { DEFAULT_CAMPAIGN_ID } from "./campaigns";
+import { resolveDefaultCampaignId, type CampaignMeta } from "./campaigns";
 import { MAX_COMPARE_CAMPAIGNS } from "./compare";
 import type {
   ChartGranularity,
@@ -37,13 +37,14 @@ function parseList(v: string | null): string[] {
  * shareable link (e.g. ?platform=TikTok&range=last7&sort=engagementRate-desc)
  * with no separate client store to keep in sync.
  */
-export function useDashboardState(content: ContentItem[]) {
+export function useDashboardState(content: ContentItem[], campaigns: CampaignMeta[]) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const mode = (searchParams.get("mode") as DashboardMode) || DEFAULTS.mode;
-  const activeCampaignId = searchParams.get("campaign") || DEFAULT_CAMPAIGN_ID;
+  const activeCampaignId =
+    searchParams.get("campaign") || resolveDefaultCampaignId(campaigns) || "";
   const allModeCampaigns = parseList(searchParams.get("campaigns"));
   const compareCampaignIds = parseList(searchParams.get("compare")).slice(
     0,
