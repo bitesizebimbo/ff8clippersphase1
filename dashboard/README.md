@@ -234,8 +234,9 @@ There are two kinds of campaign source, both defined in `lib/campaigns.ts`:
   hardcodes a campaign list) once its sheet actually returns rows; a
   misconfigured or unreachable sheet just means that campaign doesn't show
   up yet, not a broken dashboard. Currently: **FF8 Clippers Phase 1** is
-  static; **Fold 8 Clippers Launch Phase 2** is live, reading the "performance
-  clippers" tab of its Google Sheet.
+  static; **Fold 8 Clippers Launch Phase 2**, **R14 RNPL Performance**, and
+  **R14 Launch Performance** are live (the latter two are separate tabs of
+  the same spreadsheet, registered as two campaigns).
 
 #### Adding a static campaign
 
