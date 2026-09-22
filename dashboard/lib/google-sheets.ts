@@ -33,6 +33,15 @@ const EXPECTED_COLUMNS = [
   "Platform",
 ];
 
+// A1 notation requires a sheet name to be single-quoted whenever it isn't a
+// bare alphanumeric/underscore identifier (spaces, punctuation, a leading
+// digit — exactly what real-world tab names tend to have, e.g. "1. RNPL -
+// Performance"). Quoting is always valid even when not strictly required,
+// so just always quote and escape any literal quote by doubling it.
+function toA1SheetRange(sheetName: string): string {
+  return `'${sheetName.replace(/'/g, "''")}'`;
+}
+
 function slugify(s: string): string {
   return s
     .toLowerCase()
@@ -91,7 +100,7 @@ export async function fetchSheetCampaignRecords(
 
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${source.spreadsheetId}` +
-    `/values/${encodeURIComponent(source.sheetName)}`;
+    `/values/${encodeURIComponent(toA1SheetRange(source.sheetName))}`;
 
   let res: Response;
   try {

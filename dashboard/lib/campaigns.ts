@@ -44,7 +44,7 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
     productLabel: "Samsung Galaxy Z Fold8",
     sheet: {
       spreadsheetId: "1qfs2syaaIPxTHe38oGHYoUxQMn9zL9iF24vN0NRHd8g",
-      sheetName: "performance",
+      sheetName: "Performance Clippers",
     },
   },
   {
@@ -54,7 +54,7 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
     productLabel: "R14",
     sheet: {
       spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU",
-      sheetName: "RNPL-performance",
+      sheetName: "1. RNPL - Performance",
     },
   },
   {
@@ -64,7 +64,7 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
     productLabel: "R14",
     sheet: {
       spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU",
-      sheetName: "Launch-Performance",
+      sheetName: "2. Launch Offer - Performance",
     },
   },
 ];
