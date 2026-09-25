@@ -78,7 +78,16 @@ function normalizeDateValue(raw: string): string {
     return parsed.toISOString().slice(0, 10);
   }
 
-  return trimmed;
+  // Unparseable text (a placeholder like "TBD", a stray note, a formula
+  // error) must NOT be returned as-is: callers treat any non-empty
+  // publishDate as a real date. Text sorts after every ISO date string
+  // ("2026-..." starts with a digit, any letter is a higher code point),
+  // so a passthrough value here used to sort as the "newest" content and
+  // collect its own bogus bucket at the far right edge of the trend chart
+  // — silently summing real view counts from otherwise-undated rows into
+  // a fake future spike. Treating it as "no date" (same as a blank cell)
+  // correctly drops the row instead.
+  return "";
 }
 
 // A1 notation requires a sheet name to be single-quoted whenever it isn't a
@@ -237,9 +246,11 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
     return Number.isFinite(n) ? n : 0;
   };
 
-  return rows
+  const dataRows = rows
     .slice(1)
-    .filter((row) => row.some((cell) => cellToString(cell) !== ""))
+    .filter((row) => row.some((cell) => cellToString(cell) !== ""));
+
+  const records = dataRows
     .map((row, i) => {
       const rowNo = str(row, "No") || String(i + 1);
       const platform = PLATFORM_MAP[str(row, "Platform")] ?? str(row, "Platform");
@@ -267,6 +278,16 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         saves: num(row, "Save"),
         thumbnailSeed: slugify(`${username}-${rowNo}`),
       };
-    })
-    .filter((record) => record.publishDate !== "");
+    });
+
+  const withDate = records.filter((record) => record.publishDate !== "");
+  const droppedForDate = records.length - withDate.length;
+  if (droppedForDate > 0) {
+    console.warn(
+      `[google-sheets] campaign "${campaignId}": dropped ${droppedForDate} row(s) with a ` +
+        "missing or unparseable Tanggal/Date value. Their views/engagements are excluded entirely.",
+    );
+  }
+
+  return withDate;
 }
