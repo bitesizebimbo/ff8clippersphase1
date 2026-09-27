@@ -54,23 +54,16 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
     },
   },
   {
-    id: "r14-rnpl",
-    name: "R14 RNPL Performance",
-    shortLabel: "R14 RNPL",
+    // Previously two campaigns (r14-rnpl, r14-launch) from two separate
+    // tabs in this same spreadsheet — the team consolidated RNPL and Launch
+    // tracking into one tab, so this is now a single combined campaign.
+    id: "r14",
+    name: "R14 RNPL & Launch",
+    shortLabel: "R14",
     productLabel: "R14",
     sheet: {
       spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU",
-      sheetName: "1. RNPL - Performance",
-    },
-  },
-  {
-    id: "r14-launch",
-    name: "R14 Launch Performance",
-    shortLabel: "R14 Launch",
-    productLabel: "R14",
-    sheet: {
-      spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU",
-      sheetName: "2. Launch Offer - Performance",
+      sheetName: "[TO CINDA] PERFORMANCE RNPL & LAUNCH ONGOING",
     },
   },
 ];
