@@ -134,9 +134,7 @@ export function aggregateByWeek(
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([weekStart, recs]) =>
-      bucketToPoint(weekStart, `Week of ${formatShortDate(weekStart)}`, recs),
-    );
+    .map(([weekStart, recs]) => bucketToPoint(weekStart, `WK${getIsoWeekNumber(weekStart)}`, recs));
 }
 
 function bucketToPoint(
@@ -163,6 +161,19 @@ function startOfIsoWeek(iso: string): string {
   const diff = day === 0 ? -6 : 1 - day; // shift back to Monday
   d.setDate(d.getDate() + diff);
   return d.toISOString().slice(0, 10);
+}
+
+// Standard ISO 8601 week number: the week containing the year's first
+// Thursday is week 1, counted from each week's own Thursday so it's
+// unambiguous right at a year boundary.
+function getIsoWeekNumber(iso: string): number {
+  const target = new Date(`${iso}T00:00:00`);
+  const dayNr = (target.getDay() + 6) % 7; // Mon=0..Sun=6
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  const firstDayNr = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - firstDayNr + 3);
+  return 1 + Math.round((target.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
 }
 
 export function buildTimeline(
