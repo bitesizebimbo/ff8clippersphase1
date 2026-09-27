@@ -147,7 +147,9 @@ export function DashboardShell({
             breakdown={classificationBreakdown}
             campaigns={campaigns}
             showCampaignDimension={isAllMode}
+            view={state.classificationView}
             onDimensionChange={state.setClassificationDimension}
+            onViewChange={state.setClassificationView}
           />
 
           <ContentLibrary
