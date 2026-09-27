@@ -70,6 +70,7 @@ export interface ClassificationBreakdown {
 
 export type ChartGranularity = "daily" | "weekly";
 export type ChartMetric = "views" | "engagements" | "engagementRate";
+export type ClassificationView = "list" | "chart";
 
 export interface TimelinePoint {
   /** ISO date for daily granularity, or the ISO date of the week's Monday for weekly. */
