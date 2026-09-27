@@ -63,7 +63,7 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
     productLabel: "R14",
     sheet: {
       spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU",
-      sheetName: "[TO CINDA] PERFORMANCE RNPL & LAUNCH ONGOING",
+      sheetName: "PERFORMANCE RNPL & LAUNCH ONGOING",
     },
   },
 ];
