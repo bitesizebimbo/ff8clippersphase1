@@ -20,6 +20,7 @@ import type { CampaignMeta } from "@/lib/campaigns";
 import type {
   ClassificationBreakdown,
   ClassificationDimension,
+  ClassificationMetric,
   ClassificationView,
 } from "@/lib/types";
 import { EmptyState } from "./EmptyState";
@@ -29,8 +30,17 @@ const BASE_DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
   { id: "approach", label: "Approach" },
   { id: "contentType", label: "Content Type" },
   { id: "platform", label: "Platform" },
+  { id: "cxp", label: "CXP" },
+  // The sheet's own column is "Comms Focus" — labeled "Promo" here per request.
+  { id: "commsFocus", label: "Promo" },
+  { id: "hookTheme", label: "Hook Theme" },
 ];
 const CAMPAIGN_DIMENSION = { id: "campaign" as ClassificationDimension, label: "Campaign" };
+
+const METRIC_LABEL: Record<ClassificationMetric, string> = {
+  views: "Total Views",
+  avgViewsPerContent: "Avg Views / Content",
+};
 
 // Every row is one bar's height in the chart view — fixed rather than
 // container-relative, since a dimension can have as few as 2 categories
@@ -40,24 +50,32 @@ const CAMPAIGN_DIMENSION = { id: "campaign" as ClassificationDimension, label: "
 const CHART_ROW_HEIGHT = 40;
 const CHART_MIN_HEIGHT = 160;
 
+function metricValue(row: ClassificationBreakdown, metric: ClassificationMetric): number {
+  return metric === "avgViewsPerContent" ? row.averageViewsPerContent : row.views;
+}
+
 export function ClassificationPerformance({
   dimension,
   breakdown,
   campaigns,
   showCampaignDimension,
   view,
+  metric,
   onDimensionChange,
   onViewChange,
+  onMetricChange,
 }: {
   dimension: ClassificationDimension;
   breakdown: ClassificationBreakdown[];
   campaigns: CampaignMeta[];
   showCampaignDimension?: boolean;
   view: ClassificationView;
+  metric: ClassificationMetric;
   onDimensionChange: (d: ClassificationDimension) => void;
   onViewChange: (v: ClassificationView) => void;
+  onMetricChange: (m: ClassificationMetric) => void;
 }) {
-  const maxViews = Math.max(1, ...breakdown.map((b) => b.views));
+  const maxMetricValue = Math.max(1, ...breakdown.map((b) => metricValue(b, metric)));
   const dimensions = showCampaignDimension
     ? [...BASE_DIMENSIONS, CAMPAIGN_DIMENSION]
     : BASE_DIMENSIONS;
@@ -73,7 +91,8 @@ export function ClassificationPerformance({
             Performance by Classification
           </h2>
           <p className="text-sm text-foreground-muted">
-            Ranked by total views within the current filters.
+            Ranked by {metric === "avgViewsPerContent" ? "average views per content" : "total views"}{" "}
+            within the current filters.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -86,6 +105,18 @@ export function ClassificationPerformance({
               ))}
             </TabsList>
           </Tabs>
+          <select
+            value={metric}
+            onChange={(e) => onMetricChange(e.target.value as ClassificationMetric)}
+            aria-label="Rank by"
+            className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
+          >
+            {(Object.keys(METRIC_LABEL) as ClassificationMetric[]).map((m) => (
+              <option key={m} value={m}>
+                {METRIC_LABEL[m]}
+              </option>
+            ))}
+          </select>
           <Tabs value={view} onValueChange={(v) => onViewChange(v as ClassificationView)}>
             <TabsList>
               <TabsTrigger value="list">List</TabsTrigger>
@@ -102,7 +133,7 @@ export function ClassificationPerformance({
             description="Try widening the date range or clearing a filter."
           />
         ) : view === "chart" ? (
-          <BreakdownBarChart breakdown={breakdown} displayKey={displayKey} />
+          <BreakdownBarChart breakdown={breakdown} displayKey={displayKey} metric={metric} />
         ) : (
           <ul className="flex flex-col gap-3">
             {breakdown.map((row) => (
@@ -115,6 +146,12 @@ export function ClassificationPerformance({
                         {formatCompactNumber(row.views)}
                       </strong>{" "}
                       views
+                    </span>
+                    <span title={formatExactNumber(row.averageViewsPerContent)}>
+                      <strong className="tabular-nums font-semibold text-foreground">
+                        {formatCompactNumber(row.averageViewsPerContent)}
+                      </strong>{" "}
+                      avg/content
                     </span>
                     <span title={formatExactNumber(row.totalEngagements)}>
                       <strong className="tabular-nums font-semibold text-foreground">
@@ -139,7 +176,9 @@ export function ClassificationPerformance({
                 <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
                   <div
                     className="h-full rounded-full bg-accent"
-                    style={{ width: `${Math.max(2, (row.views / maxViews) * 100)}%` }}
+                    style={{
+                      width: `${Math.max(2, (metricValue(row, metric) / maxMetricValue) * 100)}%`,
+                    }}
                   />
                 </div>
               </li>
@@ -154,11 +193,17 @@ export function ClassificationPerformance({
 function BreakdownBarChart({
   breakdown,
   displayKey,
+  metric,
 }: {
   breakdown: ClassificationBreakdown[];
   displayKey: (key: string) => string;
+  metric: ClassificationMetric;
 }) {
-  const chartData = breakdown.map((row) => ({ ...row, label: displayKey(row.key) }));
+  const chartData = breakdown.map((row) => ({
+    ...row,
+    label: displayKey(row.key),
+    rankValue: metricValue(row, metric),
+  }));
   const height = Math.max(CHART_MIN_HEIGHT, chartData.length * CHART_ROW_HEIGHT);
   // Widen the label column for the longest category name so it never clips,
   // capped so one long outlier can't crush the bars down to nothing.
@@ -191,9 +236,9 @@ function BreakdownBarChart({
             tick={{ fontSize: 12, fill: "var(--foreground-subtle)" }}
           />
           <Tooltip content={<BreakdownTooltip />} cursor={{ fill: "var(--surface-muted)" }} />
-          <Bar dataKey="views" fill="var(--accent)" radius={[0, 4, 4, 0]} maxBarSize={28}>
+          <Bar dataKey="rankValue" fill="var(--accent)" radius={[0, 4, 4, 0]} maxBarSize={28}>
             <LabelList
-              dataKey="views"
+              dataKey="rankValue"
               position="right"
               formatter={(v: unknown) => formatCompactNumber(Number(v))}
               fill="var(--foreground-muted)"
@@ -220,6 +265,7 @@ function BreakdownTooltip({
       <p className="mb-1.5 font-medium text-foreground">{row.label}</p>
       <dl className="space-y-1">
         <Row label="Views" value={formatExactNumber(row.views)} />
+        <Row label="Avg Views / Content" value={formatExactNumber(row.averageViewsPerContent)} />
         <Row label="Engagements" value={formatExactNumber(row.totalEngagements)} />
         <Row label="Engagement Rate" value={formatPercent(row.engagementRate)} />
         <Row label="Posts" value={String(row.contentCount)} />

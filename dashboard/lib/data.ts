@@ -23,6 +23,7 @@ import type {
   ChartGranularity,
   ClassificationBreakdown,
   ClassificationDimension,
+  ClassificationMetric,
   ContentItem,
   DashboardFilters,
   DashboardSummary,
@@ -135,9 +136,10 @@ export function getClassificationPerformance(
   content: ContentItem[],
   dimension: ClassificationDimension,
   filters: DashboardFilters,
+  metric: ClassificationMetric = "views",
 ): ClassificationBreakdown[] {
   const current = filterContent(content, filters);
-  return aggregateByClassification(current, dimension);
+  return aggregateByClassification(current, dimension, metric);
 }
 
 export function getTotalContentCount(

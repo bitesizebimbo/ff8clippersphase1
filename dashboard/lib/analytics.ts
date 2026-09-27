@@ -7,6 +7,7 @@ import type {
   ChartMetric,
   ClassificationBreakdown,
   ClassificationDimension,
+  ClassificationMetric,
   ContentItem,
   DailyPerformanceRecord,
   DashboardComparison,
@@ -237,11 +238,15 @@ const DIMENSION_KEY: Record<ClassificationDimension, keyof ContentItem> = {
   contentType: "contentType",
   platform: "platform",
   campaign: "campaignId",
+  cxp: "cxp",
+  commsFocus: "commsFocus",
+  hookTheme: "hookTheme",
 };
 
 export function aggregateByClassification(
   items: ContentItem[],
   dimension: ClassificationDimension,
+  metric: ClassificationMetric = "views",
 ): ClassificationBreakdown[] {
   const field = DIMENSION_KEY[dimension];
   const buckets = new Map<string, ContentItem[]>();
@@ -264,7 +269,12 @@ export function aggregateByClassification(
         totalEngagements,
         engagementRate: calculateEngagementRate(totalEngagements, totals.views),
         contentCount: list.length,
+        averageViewsPerContent: list.length > 0 ? Math.round(totals.views / list.length) : 0,
       };
     })
-    .sort((a, b) => b.views - a.views);
+    .sort((a, b) =>
+      metric === "avgViewsPerContent"
+        ? b.averageViewsPerContent - a.averageViewsPerContent
+        : b.views - a.views,
+    );
 }
