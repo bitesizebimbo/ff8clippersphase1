@@ -20,6 +20,12 @@ export interface RawContentRecord {
   product: string;
   approach: string;
   contentType: string;
+  /** Distinct from `product` — the sheet's own "CXP" column (a feature/theme, e.g. "Horizontal Lock"). */
+  cxp: string;
+  /** The sheet's "Comms Focus" column; labeled "Promo" in the UI. */
+  commsFocus: string;
+  /** Distinct from `contentType` — the sheet's own "Hook Theme" column (e.g. "Proud to Own"). */
+  hookTheme: string;
   views: number;
   likes: number;
   comments: number;
@@ -58,7 +64,13 @@ export type ClassificationDimension =
   | "approach"
   | "contentType"
   | "platform"
-  | "campaign";
+  | "campaign"
+  | "cxp"
+  | "commsFocus"
+  | "hookTheme";
+
+/** Which number ranks the breakdown: the bucket's total views, or its views averaged per piece of content. */
+export type ClassificationMetric = "views" | "avgViewsPerContent";
 
 export interface ClassificationBreakdown {
   key: string;
@@ -66,6 +78,7 @@ export interface ClassificationBreakdown {
   totalEngagements: number;
   engagementRate: number;
   contentCount: number;
+  averageViewsPerContent: number;
 }
 
 export type ChartGranularity = "daily" | "weekly";

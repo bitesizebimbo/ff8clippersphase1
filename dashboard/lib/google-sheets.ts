@@ -35,10 +35,10 @@ const EXPECTED_COLUMNS = [
   "Platform",
 ];
 
-// "Username" and "Approach" are read when present (str() below already
-// defaults to "" for any column that isn't found) but aren't in
-// EXPECTED_COLUMNS — several campaigns' sheets simply don't track these, and
-// that's not worth warning about.
+// "Username", "Approach", "CXP", "Comms Focus", and "Hook Theme" are read
+// when present (str() below already defaults to "" for any column that
+// isn't found) but aren't in EXPECTED_COLUMNS — several campaigns' sheets
+// simply don't track these, and that's not worth warning about.
 
 // Column names some sheets use instead of our canonical ones. Checked in
 // order after the canonical name itself.
@@ -257,6 +257,9 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
       const product = str(row, "Product");
       const approach = str(row, "Approach");
       const contentType = str(row, "Content Type");
+      const cxp = str(row, "CXP");
+      const commsFocus = str(row, "Comms Focus");
+      const hookTheme = str(row, "Hook Theme");
       const username = str(row, "Username");
 
       return {
@@ -271,6 +274,9 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         product,
         approach,
         contentType,
+        cxp,
+        commsFocus,
+        hookTheme,
         views: num(row, "Views"),
         likes: num(row, "Like"),
         comments: num(row, "Comment"),

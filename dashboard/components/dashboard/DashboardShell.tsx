@@ -64,8 +64,14 @@ export function DashboardShell({
     [content, state.filters, state.chartGranularity],
   );
   const classificationBreakdown = useMemo(
-    () => getClassificationPerformance(content, state.classificationDimension, state.filters),
-    [content, state.classificationDimension, state.filters],
+    () =>
+      getClassificationPerformance(
+        content,
+        state.classificationDimension,
+        state.filters,
+        state.classificationMetric,
+      ),
+    [content, state.classificationDimension, state.filters, state.classificationMetric],
   );
   const contentById = useMemo(() => new Map(content.map((c) => [c.id, c])), [content]);
   const selectedContent = state.selectedContentId
@@ -148,8 +154,10 @@ export function DashboardShell({
             campaigns={campaigns}
             showCampaignDimension={isAllMode}
             view={state.classificationView}
+            metric={state.classificationMetric}
             onDimensionChange={state.setClassificationDimension}
             onViewChange={state.setClassificationView}
+            onMetricChange={state.setClassificationMetric}
           />
 
           <ContentLibrary

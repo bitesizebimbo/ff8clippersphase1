@@ -9,6 +9,7 @@ import type {
   ChartGranularity,
   ChartMetric,
   ClassificationDimension,
+  ClassificationMetric,
   ClassificationView,
   ContentItem,
   DashboardFilters,
@@ -27,6 +28,7 @@ const DEFAULTS = {
   view: "grid" as ViewMode,
   dimension: "product" as ClassificationDimension,
   breakdownView: "list" as ClassificationView,
+  classificationMetric: "views" as ClassificationMetric,
 };
 
 function parseList(v: string | null): string[] {
@@ -99,6 +101,8 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     (searchParams.get("dimension") as ClassificationDimension) || DEFAULTS.dimension;
   const classificationView =
     (searchParams.get("breakdownView") as ClassificationView) || DEFAULTS.breakdownView;
+  const classificationMetric =
+    (searchParams.get("rankBy") as ClassificationMetric) || DEFAULTS.classificationMetric;
   const selectedContentId = searchParams.get("content");
 
   const setParams = useCallback(
@@ -137,6 +141,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     viewMode,
     classificationDimension,
     classificationView,
+    classificationMetric,
     selectedContentId,
     hasActiveFilters,
 
@@ -161,6 +166,8 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     setClassificationDimension: (d: ClassificationDimension) => setParams({ dimension: d }),
     setClassificationView: (v: ClassificationView) =>
       setParams({ breakdownView: v === DEFAULTS.breakdownView ? null : v }),
+    setClassificationMetric: (m: ClassificationMetric) =>
+      setParams({ rankBy: m === DEFAULTS.classificationMetric ? null : m }),
     setSelectedContentId: (id: string | null) => setParams({ content: id }),
     clearFilters: () =>
       setParams({
