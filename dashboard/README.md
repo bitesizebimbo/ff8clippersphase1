@@ -233,10 +233,11 @@ There are two kinds of campaign source, both defined in `lib/campaigns.ts`:
   `campaigns` (and therefore the switcher, All mode, Compare mode — nowhere
   hardcodes a campaign list) once its sheet actually returns rows; a
   misconfigured or unreachable sheet just means that campaign doesn't show
-  up yet, not a broken dashboard. Currently: **FF8 Clippers Phase 1** is
-  static; **Fold 8 Clippers Launch Phase 2**, **R14 RNPL Performance**, and
-  **R14 Launch Performance** are live (the latter two are separate tabs of
-  the same spreadsheet, registered as two campaigns).
+  up yet, not a broken dashboard. Currently no campaign ships as static
+  JSON — **FF8 Clippers Phase 1**, **Fold 8 Clippers Launch Phase 2**, and
+  **R14 RNPL & Launch** are all live. (R14 RNPL and Launch were originally
+  two separate tabs/campaigns; the team consolidated tracking into one tab,
+  so it's now registered as a single campaign.)
 
 #### Adding a static campaign
 
