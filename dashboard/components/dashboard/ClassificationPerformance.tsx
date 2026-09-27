@@ -27,7 +27,6 @@ import { EmptyState } from "./EmptyState";
 
 const BASE_DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
   { id: "product", label: "Product" },
-  { id: "approach", label: "Approach" },
   { id: "contentType", label: "Content Type" },
   { id: "platform", label: "Platform" },
   { id: "cxp", label: "CXP" },
