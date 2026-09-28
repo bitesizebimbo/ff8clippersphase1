@@ -137,6 +137,11 @@ export function filterContent(
       return false;
     if (filters.platform.length && !filters.platform.includes(item.platform))
       return false;
+    if (filters.cxp.length && !filters.cxp.includes(item.cxp)) return false;
+    if (filters.commsFocus.length && !filters.commsFocus.includes(item.commsFocus))
+      return false;
+    if (filters.hookTheme.length && !filters.hookTheme.includes(item.hookTheme))
+      return false;
     if (search) {
       const haystack = `${item.title} ${item.caption} ${item.product} ${item.creator} ${item.id}`.toLowerCase();
       if (!haystack.includes(search)) return false;

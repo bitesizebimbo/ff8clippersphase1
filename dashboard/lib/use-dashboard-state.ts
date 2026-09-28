@@ -19,6 +19,19 @@ import type {
   ViewMode,
 } from "./types";
 
+// URL param each classification dimension's drill-down filter is stored
+// under. "campaign" has no entry — campaign scoping goes through
+// mode/switcher, not a filter click.
+const DIMENSION_PARAM: Partial<Record<ClassificationDimension, string>> = {
+  product: "product",
+  approach: "approach",
+  contentType: "type",
+  platform: "platform",
+  cxp: "cxp",
+  commsFocus: "promo",
+  hookTheme: "hooktheme",
+};
+
 const DEFAULTS = {
   mode: "single" as DashboardMode,
   range: "all" as DatePreset,
@@ -86,6 +99,9 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
       approach: parseList(searchParams.get("approach")),
       contentType: parseList(searchParams.get("type")),
       platform: parseList(searchParams.get("platform")),
+      cxp: parseList(searchParams.get("cxp")),
+      commsFocus: parseList(searchParams.get("promo")),
+      hookTheme: parseList(searchParams.get("hooktheme")),
       search: searchParams.get("q") ?? "",
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,6 +139,9 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     filters.approach.length > 0 ||
     filters.contentType.length > 0 ||
     filters.platform.length > 0 ||
+    filters.cxp.length > 0 ||
+    filters.commsFocus.length > 0 ||
+    filters.hookTheme.length > 0 ||
     filters.search.length > 0 ||
     presetParam !== "all" ||
     (mode === "all" && allModeCampaigns.length > 0);
@@ -168,6 +187,16 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
       setParams({ breakdownView: v === DEFAULTS.breakdownView ? null : v }),
     setClassificationMetric: (m: ClassificationMetric) =>
       setParams({ rankBy: m === DEFAULTS.classificationMetric ? null : m }),
+    // Clicking a value in Performance by Classification drills into it:
+    // clicking the same value again clears it back to "All". Dimensions
+    // with no filter mapping (campaign) are a no-op.
+    toggleClassificationFilter: (dimension: ClassificationDimension, value: string) => {
+      const param = DIMENSION_PARAM[dimension];
+      if (!param) return;
+      const current = parseList(searchParams.get(param));
+      const isActive = current.length === 1 && current[0] === value;
+      setParams({ [param]: isActive ? null : value });
+    },
     setSelectedContentId: (id: string | null) => setParams({ content: id }),
     clearFilters: () =>
       setParams({
@@ -175,6 +204,9 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
         approach: null,
         type: null,
         platform: null,
+        cxp: null,
+        promo: null,
+        hooktheme: null,
         q: null,
         range: null,
         start: null,

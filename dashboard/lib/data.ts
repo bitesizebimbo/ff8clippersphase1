@@ -132,13 +132,51 @@ export function getPerformanceTimeline(
   return buildTimeline(records, granularity);
 }
 
+/** The DashboardFilters fields a classification drill-down can target — always a string array. */
+type ArrayFilterKey =
+  | "product"
+  | "approach"
+  | "contentType"
+  | "platform"
+  | "cxp"
+  | "commsFocus"
+  | "hookTheme";
+
+// Maps a classification dimension to the DashboardFilters field a drill-down
+// click on one of its values sets. "campaign" has no entry — campaign
+// scoping goes through mode/switcher, not this drill-down.
+export const DIMENSION_FILTER_KEY: Partial<Record<ClassificationDimension, ArrayFilterKey>> = {
+  product: "product",
+  approach: "approach",
+  contentType: "contentType",
+  platform: "platform",
+  cxp: "cxp",
+  commsFocus: "commsFocus",
+  hookTheme: "hookTheme",
+};
+
+/**
+ * A dimension's own active filter is cleared before computing its
+ * breakdown, so clicking "Happy User" under Hook Theme to filter the
+ * Content Library doesn't also collapse the Hook Theme ranking itself down
+ * to that one row — you can still see (and switch to) every other value.
+ */
+function omitOwnDimensionFilter(
+  filters: DashboardFilters,
+  dimension: ClassificationDimension,
+): DashboardFilters {
+  const key = DIMENSION_FILTER_KEY[dimension];
+  if (!key) return filters;
+  return { ...filters, [key]: [] };
+}
+
 export function getClassificationPerformance(
   content: ContentItem[],
   dimension: ClassificationDimension,
   filters: DashboardFilters,
   metric: ClassificationMetric = "views",
 ): ClassificationBreakdown[] {
-  const current = filterContent(content, filters);
+  const current = filterContent(content, omitOwnDimensionFilter(filters, dimension));
   return aggregateByClassification(current, dimension, metric);
 }
 

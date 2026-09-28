@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   ResponsiveContainer,
   Tooltip,
@@ -60,9 +61,11 @@ export function ClassificationPerformance({
   showCampaignDimension,
   view,
   metric,
+  activeValue,
   onDimensionChange,
   onViewChange,
   onMetricChange,
+  onSelectValue,
 }: {
   dimension: ClassificationDimension;
   breakdown: ClassificationBreakdown[];
@@ -70,9 +73,13 @@ export function ClassificationPerformance({
   showCampaignDimension?: boolean;
   view: ClassificationView;
   metric: ClassificationMetric;
+  /** The value currently drilled into for this dimension, if any (see onSelectValue). */
+  activeValue?: string;
   onDimensionChange: (d: ClassificationDimension) => void;
   onViewChange: (v: ClassificationView) => void;
   onMetricChange: (m: ClassificationMetric) => void;
+  /** Clicking a row/bar drills the Content Library into that value; clicking it again clears it. No-op for "campaign" (not passed a value there). */
+  onSelectValue: (dimension: ClassificationDimension, value: string) => void;
 }) {
   const maxMetricValue = Math.max(1, ...breakdown.map((b) => metricValue(b, metric)));
   const dimensions = showCampaignDimension
@@ -81,6 +88,7 @@ export function ClassificationPerformance({
   const campaignNameById = new Map(campaigns.map((c) => [c.id, c.name]));
   const displayKey = (key: string) =>
     dimension === "campaign" ? (campaignNameById.get(key) ?? key) : key;
+  const clickable = dimension !== "campaign";
 
   return (
     <section className="rounded-[var(--radius-lg)] border border-border bg-surface p-4 sm:p-5">
@@ -92,6 +100,7 @@ export function ClassificationPerformance({
           <p className="text-sm text-foreground-muted">
             Ranked by {metric === "avgViewsPerContent" ? "average views per content" : "total views"}{" "}
             within the current filters.
+            {clickable && " Click a value to filter the content library below."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -132,56 +141,84 @@ export function ClassificationPerformance({
             description="Try widening the date range or clearing a filter."
           />
         ) : view === "chart" ? (
-          <BreakdownBarChart breakdown={breakdown} displayKey={displayKey} metric={metric} />
+          <BreakdownBarChart
+            breakdown={breakdown}
+            displayKey={displayKey}
+            metric={metric}
+            activeValue={activeValue}
+            clickable={clickable}
+            onSelectValue={(key) => onSelectValue(dimension, key)}
+          />
         ) : (
-          <ul className="flex flex-col gap-3">
-            {breakdown.map((row) => (
-              <li key={row.key} className="flex flex-col gap-1.5">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
-                  <span className="text-sm font-medium text-foreground">{displayKey(row.key)}</span>
-                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs text-foreground-muted">
-                    <span title={formatExactNumber(row.views)}>
-                      <strong className="tabular-nums font-semibold text-foreground">
-                        {formatCompactNumber(row.views)}
-                      </strong>{" "}
-                      views
-                    </span>
-                    <span title={formatExactNumber(row.averageViewsPerContent)}>
-                      <strong className="tabular-nums font-semibold text-foreground">
-                        {formatCompactNumber(row.averageViewsPerContent)}
-                      </strong>{" "}
-                      avg/content
-                    </span>
-                    <span title={formatExactNumber(row.totalEngagements)}>
-                      <strong className="tabular-nums font-semibold text-foreground">
-                        {formatCompactNumber(row.totalEngagements)}
-                      </strong>{" "}
-                      engagements
-                    </span>
-                    <span>
-                      <strong className="tabular-nums font-semibold text-foreground">
-                        {formatPercent(row.engagementRate)}
-                      </strong>{" "}
-                      ER
-                    </span>
-                    <span>
-                      <strong className="tabular-nums font-semibold text-foreground">
-                        {row.contentCount}
-                      </strong>{" "}
-                      posts
-                    </span>
+          <ul className="flex flex-col gap-1">
+            {breakdown.map((row) => {
+              const isActive = clickable && row.key === activeValue;
+              const rowContent = (
+                <>
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+                    <span className="text-sm font-medium text-foreground">{displayKey(row.key)}</span>
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-xs text-foreground-muted">
+                      <span title={formatExactNumber(row.views)}>
+                        <strong className="tabular-nums font-semibold text-foreground">
+                          {formatCompactNumber(row.views)}
+                        </strong>{" "}
+                        views
+                      </span>
+                      <span title={formatExactNumber(row.averageViewsPerContent)}>
+                        <strong className="tabular-nums font-semibold text-foreground">
+                          {formatCompactNumber(row.averageViewsPerContent)}
+                        </strong>{" "}
+                        avg/content
+                      </span>
+                      <span title={formatExactNumber(row.totalEngagements)}>
+                        <strong className="tabular-nums font-semibold text-foreground">
+                          {formatCompactNumber(row.totalEngagements)}
+                        </strong>{" "}
+                        engagements
+                      </span>
+                      <span>
+                        <strong className="tabular-nums font-semibold text-foreground">
+                          {formatPercent(row.engagementRate)}
+                        </strong>{" "}
+                        ER
+                      </span>
+                      <span>
+                        <strong className="tabular-nums font-semibold text-foreground">
+                          {row.contentCount}
+                        </strong>{" "}
+                        posts
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
-                  <div
-                    className="h-full rounded-full bg-accent"
-                    style={{
-                      width: `${Math.max(2, (metricValue(row, metric) / maxMetricValue) * 100)}%`,
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
+                    <div
+                      className={`h-full rounded-full ${isActive ? "bg-accent" : "bg-accent/70"}`}
+                      style={{
+                        width: `${Math.max(2, (metricValue(row, metric) / maxMetricValue) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </>
+              );
+              return (
+                <li key={row.key}>
+                  {clickable ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectValue(dimension, row.key)}
+                      aria-pressed={isActive}
+                      className={`flex w-full flex-col gap-1.5 rounded-[var(--radius-sm)] p-2 text-left transition-colors hover:bg-surface-muted ${
+                        isActive ? "bg-accent-soft ring-1 ring-inset ring-accent" : ""
+                      }`}
+                    >
+                      {rowContent}
+                    </button>
+                  ) : (
+                    <div className="flex flex-col gap-1.5 p-2">{rowContent}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -193,10 +230,16 @@ function BreakdownBarChart({
   breakdown,
   displayKey,
   metric,
+  activeValue,
+  clickable,
+  onSelectValue,
 }: {
   breakdown: ClassificationBreakdown[];
   displayKey: (key: string) => string;
   metric: ClassificationMetric;
+  activeValue?: string;
+  clickable: boolean;
+  onSelectValue: (key: string) => void;
 }) {
   const chartData = breakdown.map((row) => ({
     ...row,
@@ -235,7 +278,26 @@ function BreakdownBarChart({
             tick={{ fontSize: 12, fill: "var(--foreground-subtle)" }}
           />
           <Tooltip content={<BreakdownTooltip />} cursor={{ fill: "var(--surface-muted)" }} />
-          <Bar dataKey="rankValue" fill="var(--accent)" radius={[0, 4, 4, 0]} maxBarSize={28}>
+          <Bar
+            dataKey="rankValue"
+            radius={[0, 4, 4, 0]}
+            maxBarSize={28}
+            onClick={
+              clickable
+                ? (entry: { payload?: { key?: string } }) => {
+                    if (entry.payload?.key) onSelectValue(entry.payload.key);
+                  }
+                : undefined
+            }
+            style={clickable ? { cursor: "pointer" } : undefined}
+          >
+            {chartData.map((row) => (
+              <Cell
+                key={row.key}
+                fill="var(--accent)"
+                fillOpacity={clickable && activeValue && row.key !== activeValue ? 0.45 : 1}
+              />
+            ))}
             <LabelList
               dataKey="rankValue"
               position="right"
