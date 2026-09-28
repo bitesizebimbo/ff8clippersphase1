@@ -73,12 +73,14 @@ export function ContentDetailDrawer({
               </h3>
               <dl className="flex flex-col gap-2.5 text-sm">
                 <ClassRow label="Product" value={item.product} />
-                <ClassRow label="Approach" value={item.approach} />
                 <ClassRow label="Content Type" value={item.contentType} />
                 <ClassRow
                   label="Platform"
                   value={<PlatformBadge platform={item.platform} />}
                 />
+                {item.cxp && <ClassRow label="CXP" value={item.cxp} />}
+                {item.commsFocus && <ClassRow label="Promo" value={item.commsFocus} />}
+                {item.hookTheme && <ClassRow label="Hook Theme" value={item.hookTheme} />}
                 <ClassRow label="Published" value={formatDate(item.publishDate)} />
               </dl>
             </section>
