@@ -30,6 +30,7 @@ export function ContentDetailDrawer({
                 seed={item.thumbnailSeed}
                 creator={item.creator}
                 platform={item.platform}
+                contentUrl={item.contentUrl}
                 size="lg"
                 className="w-40"
               />

@@ -19,6 +19,7 @@ export function ContentCard({
         seed={item.thumbnailSeed}
         creator={item.creator}
         platform={item.platform}
+        contentUrl={item.contentUrl}
         className="w-full"
       />
       <div className="flex flex-1 flex-col gap-2 p-3.5">
