@@ -36,6 +36,7 @@ export function ContentTable({
                     seed={item.thumbnailSeed}
                     creator={item.creator}
                     platform={item.platform}
+                    contentUrl={item.contentUrl}
                     size="sm"
                     className="h-11 w-8 shrink-0"
                   />
