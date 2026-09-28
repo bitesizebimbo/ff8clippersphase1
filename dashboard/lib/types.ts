@@ -126,6 +126,9 @@ export interface DashboardFilters {
   approach: string[];
   contentType: string[];
   platform: string[];
+  cxp: string[];
+  commsFocus: string[];
+  hookTheme: string[];
   search: string;
 }
 

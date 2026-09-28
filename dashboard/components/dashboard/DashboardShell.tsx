@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useDashboardState } from "@/lib/use-dashboard-state";
 import {
+  DIMENSION_FILTER_KEY,
   getClassificationPerformance,
   getContentPerformance,
   getDashboardSummary,
@@ -73,6 +74,11 @@ export function DashboardShell({
       ),
     [content, state.classificationDimension, state.filters, state.classificationMetric],
   );
+  const classificationFilterKey = DIMENSION_FILTER_KEY[state.classificationDimension];
+  const classificationActiveValue = classificationFilterKey
+    ? state.filters[classificationFilterKey][0]
+    : undefined;
+
   const contentById = useMemo(() => new Map(content.map((c) => [c.id, c])), [content]);
   const selectedContent = state.selectedContentId
     ? (contentById.get(state.selectedContentId) ?? null)
@@ -155,9 +161,11 @@ export function DashboardShell({
             showCampaignDimension={isAllMode}
             view={state.classificationView}
             metric={state.classificationMetric}
+            activeValue={classificationActiveValue}
             onDimensionChange={state.setClassificationDimension}
             onViewChange={state.setClassificationView}
             onMetricChange={state.setClassificationMetric}
+            onSelectValue={state.toggleClassificationFilter}
           />
 
           <ContentLibrary
