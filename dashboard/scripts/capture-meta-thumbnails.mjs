@@ -20,7 +20,7 @@
 // Options:
 //   --url <post url>   capture just this post (repeatable); skips the sheets
 //   --force            re-capture posts that already have a screenshot
-//   --limit <n>        stop after n captures (handy for a test run)
+//   --limit <n>        only try the first n posts (handy for a test run)
 //   --headed           show the browser window, to watch or debug it
 //   --delay <seconds>  base wait between posts (default 8; each wait is a
 //                      random 1–2× this). Raise it if Instagram pushes back.
@@ -282,7 +282,8 @@ async function main() {
   let captured = 0;
   let backoffStep = 0;
   let stoppedEarly = false;
-  for (let i = 0; i < todo.length && captured < limit; ) {
+  const total = Math.min(todo.length, limit);
+  for (let i = 0; i < total; ) {
     const code = todo[i];
     const file = `ig-${code}.jpg`;
     try {
@@ -293,7 +294,7 @@ async function main() {
       await writeFile(MANIFEST_PATH, JSON.stringify(sorted, null, 2) + "\n");
       captured++;
       backoffStep = 0;
-      console.log(`  ✓ ${code} (${captured}/${Math.min(todo.length, limit)})`);
+      console.log(`  ✓ ${code} (${i + 1}/${total})`);
       i++;
     } catch (err) {
       if (err instanceof RateLimitedError) {
