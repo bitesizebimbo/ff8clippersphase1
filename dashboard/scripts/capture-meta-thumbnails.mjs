@@ -21,6 +21,13 @@
 //   --force            re-capture posts that already have a screenshot
 //   --limit <n>        stop after n captures (handy for a test run)
 //   --headed           show the browser window, to watch or debug it
+//   --delay <seconds>  base wait between posts (default 8; each wait is a
+//                      random 1–2× this). Raise it if Instagram pushes back.
+//
+// If Instagram rate-limits the run (429, or bounces to its login page), the
+// script backs off — waits 5, then 10, then 20 minutes and retries the same
+// post — and stops cleanly if it's still blocked, keeping everything
+// captured so far. Just run it again later to continue.
 //
 // Reading the sheets uses the same service account as the dashboard
 // (GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY, read from
@@ -57,9 +64,15 @@ const { values: args } = parseArgs({
     force: { type: "boolean", default: false },
     limit: { type: "string" },
     headed: { type: "boolean", default: false },
+    delay: { type: "string", default: "8" },
   },
 });
 const limit = args.limit ? Number(args.limit) : Infinity;
+const delayMs = Number(args.delay) * 1000;
+
+// Waits after Instagram rate-limits us, before retrying; when these run
+// out, the run stops.
+const BACKOFF_MINUTES = [5, 10, 20];
 
 // ---------------------------------------------------------------------------
 // Which posts to capture
@@ -130,11 +143,23 @@ async function closePopups(page) {
   await page.keyboard.press("Escape").catch(() => {});
 }
 
+class RateLimitedError extends Error {}
+
 async function capture(page, shortcode, outPath) {
-  await page.goto(`https://www.instagram.com/reel/${shortcode}/`, {
-    waitUntil: "domcontentloaded",
-    timeout: 45_000,
-  });
+  let response;
+  try {
+    response = await page.goto(`https://www.instagram.com/reel/${shortcode}/`, {
+      waitUntil: "domcontentloaded",
+      timeout: 45_000,
+    });
+  } catch (err) {
+    // Chromium reports an error-status page (e.g. 429) as a navigation failure.
+    if (/ERR_HTTP_RESPONSE_CODE_FAILURE/.test(err.message)) throw new RateLimitedError("blocked by Instagram");
+    throw err;
+  }
+  if (response?.status() === 429 || page.url().includes("/accounts/login")) {
+    throw new RateLimitedError("Instagram is asking to log in / rate-limiting");
+  }
   // The login modal tends to appear a moment after load, not immediately.
   await page.waitForTimeout(3000);
   await closePopups(page);
@@ -190,8 +215,10 @@ async function main() {
 
   const failures = [];
   let captured = 0;
-  for (const code of todo) {
-    if (captured >= limit) break;
+  let backoffStep = 0;
+  let stoppedEarly = false;
+  for (let i = 0; i < todo.length && captured < limit; ) {
+    const code = todo[i];
     const file = `ig-${code}.jpg`;
     try {
       await capture(page, code, path.join(THUMBNAIL_DIR, file));
@@ -200,17 +227,36 @@ async function main() {
       const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
       await writeFile(MANIFEST_PATH, JSON.stringify(sorted, null, 2) + "\n");
       captured++;
-      console.log(`  ✓ ${code}`);
+      backoffStep = 0;
+      console.log(`  ✓ ${code} (${captured}/${Math.min(todo.length, limit)})`);
+      i++;
     } catch (err) {
+      if (err instanceof RateLimitedError) {
+        if (backoffStep >= BACKOFF_MINUTES.length) {
+          console.warn(`  ✗ ${code}: still blocked after backing off — stopping here.`);
+          stoppedEarly = true;
+          break;
+        }
+        const minutes = BACKOFF_MINUTES[backoffStep++];
+        console.warn(`  … ${code}: ${err.message}; waiting ${minutes} min before retrying`);
+        await page.waitForTimeout(minutes * 60_000);
+        continue; // retry the same post
+      }
       failures.push(code);
       console.warn(`  ✗ ${code}: ${err.message.split("\n")[0]}`);
+      i++;
     }
-    // Pace requests like a person browsing, to avoid being rate-limited.
-    await page.waitForTimeout(1500 + Math.random() * 2000);
+    // Space posts out like a person browsing, so the run stays well under
+    // Instagram's rate limits.
+    await page.waitForTimeout(delayMs * (1 + Math.random()));
   }
   await browser.close();
 
   console.log(`\nCaptured ${captured}, failed ${failures.length}.`);
+  if (stoppedEarly) {
+    console.log("Instagram kept blocking requests, so the run stopped early. Wait an hour or so and");
+    console.log("run it again (captured posts are kept and skipped); a larger --delay helps.");
+  }
   if (failures.length) {
     console.log("Retry failed posts later (they're skipped until captured), or watch one with:");
     console.log(`  npm run capture:meta-thumbnails -- --headed --url https://www.instagram.com/reel/${failures[0]}/`);

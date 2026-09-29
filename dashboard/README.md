@@ -184,7 +184,9 @@ observations. A few product decisions follow from that:
      screenshots the video). They land in `public/thumbnails/`, indexed by
      `data/thumbnails.json`. One-time setup: `npx playwright install
      chromium`; needs the Google Sheets credentials in `.env.local` and
-     Node 22.18+. Re-run after new posts are added — already-captured posts
+     Node 22.18+. Posts are spaced ~8–16s apart (`--delay`), and the script backs
+     off and stops cleanly if Instagram rate-limits it. Re-run after new
+     posts are added — already-captured posts
      are skipped — then commit both and redeploy.
 5. **Titles/captions are synthesized**, since the source has no per-post
    title or caption column: title is `"{Content Type} · {Product}"`,
