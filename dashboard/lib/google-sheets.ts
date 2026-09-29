@@ -122,6 +122,29 @@ function slugify(s: string): string {
 
 let cachedClient: JWT | null = null;
 
+// The private key env var is pasted by hand into Vercel, and the easy
+// mistakes all make OpenSSL reject it ("DECODER routines::unsupported"),
+// silently emptying every campaign. Accept the common variants:
+// - escaped "\n" instead of real newlines (single-line paste)
+// - surrounding quotes copied along with it
+// - Windows "\r\n" line endings
+// - the whole service-account JSON file instead of just its private_key
+function normalizePrivateKey(raw: string): string {
+  let key = raw.trim();
+  if (key.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(key) as { private_key?: unknown };
+      if (typeof parsed.private_key === "string") key = parsed.private_key.trim();
+    } catch {
+      // Not JSON after all — use it as-is.
+    }
+  }
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1);
+  }
+  return key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
+}
+
 function getAuthClient(): JWT | null {
   const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
   const privateKeyRaw = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
@@ -129,10 +152,7 @@ function getAuthClient(): JWT | null {
   if (cachedClient) return cachedClient;
   cachedClient = new JWT({
     email: clientEmail,
-    // Vercel env vars are single-line; a key pasted with escaped \n needs
-    // un-escaping. A literal multi-line paste already has real newlines and
-    // this replace is a no-op either way.
-    key: privateKeyRaw.replace(/\\n/g, "\n"),
+    key: normalizePrivateKey(privateKeyRaw),
     scopes: [SHEETS_READONLY_SCOPE],
   });
   return cachedClient;
