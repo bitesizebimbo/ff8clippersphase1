@@ -46,6 +46,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const THUMBNAIL_DIR = path.join(ROOT, "public", "thumbnails");
 const MANIFEST_PATH = path.join(ROOT, "data", "thumbnails.json");
 const SAVED_LINKS_PATH = path.join(ROOT, "data", "meta-post-links.txt");
+// A full-page screenshot of every post that fails, to see what went wrong.
+const DEBUG_DIR = path.join(ROOT, "capture-debug");
 
 // Keep in sync with lib/thumbnails.ts — the manifest keys written here are
 // what it looks up.
@@ -173,18 +175,47 @@ async function capture(page, shortcode, outPath) {
   await page.waitForTimeout(3000);
   await closePopups(page);
 
-  const video = page.locator("main video").first();
-  await video.waitFor({ state: "visible", timeout: 15_000 });
-  // Freeze on a real frame (not a black, still-loading one) so the
-  // screenshot is stable.
-  await video.evaluate(async (el) => {
-    el.muted = true;
-    const deadline = Date.now() + 8000;
-    while (el.readyState < 2 && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-    el.pause();
-  });
+  // Instagram's layout varies (and changes), so rather than rely on one
+  // selector, take the largest visible video on the page — or, if there's
+  // no video, the largest portrait image (the reel's cover) — and mark it.
+  const found = await page
+    .waitForFunction(
+      () => {
+        const visibleArea = (el) => {
+          const r = el.getBoundingClientRect();
+          const style = getComputedStyle(el);
+          if (style.visibility === "hidden" || style.display === "none" || r.width < 100 || r.height < 100) return 0;
+          return r.width * r.height;
+        };
+        const pick = (els) => els.sort((a, b) => visibleArea(b) - visibleArea(a)).find((el) => visibleArea(el) > 0);
+        const target =
+          pick([...document.querySelectorAll("video")]) ??
+          pick([...document.querySelectorAll("img")].filter((img) => img.naturalHeight > img.naturalWidth * 1.1));
+        if (!target) return false;
+        document.querySelectorAll("[data-capture-target]").forEach((el) => el.removeAttribute("data-capture-target"));
+        target.setAttribute("data-capture-target", "");
+        return target.tagName;
+      },
+      null,
+      { timeout: 20_000, polling: 500 },
+    )
+    .then((handle) => handle.jsonValue())
+    .catch(() => null);
+  if (!found) throw new Error("couldn't find the reel's video or cover image on the page");
+  const media = page.locator("[data-capture-target]").first();
+
+  if (found === "VIDEO") {
+    // Freeze on a real frame (not a black, still-loading one) so the
+    // screenshot is stable.
+    await media.evaluate(async (el) => {
+      el.muted = true;
+      const deadline = Date.now() + 8000;
+      while (el.readyState < 2 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      el.pause();
+    });
+  }
 
   // A popup can still slide in late; close it again right before shooting.
   await closePopups(page);
@@ -192,11 +223,7 @@ async function capture(page, shortcode, outPath) {
     throw new Error("a popup is still covering the post");
   }
 
-  const box = await video.boundingBox();
-  if (!box || box.width < 100 || box.height < 100) {
-    throw new Error("video element not found at a usable size");
-  }
-  await video.screenshot({ path: outPath, type: "jpeg", quality: 80 });
+  await media.screenshot({ path: outPath, type: "jpeg", quality: 80 });
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +280,8 @@ async function main() {
       }
       failures.push(code);
       console.warn(`  ✗ ${code}: ${err.message.split("\n")[0]}`);
+      await mkdir(DEBUG_DIR, { recursive: true });
+      await page.screenshot({ path: path.join(DEBUG_DIR, `${code}.png`) }).catch(() => {});
       i++;
     }
     // Space posts out like a person browsing, so the run stays well under
@@ -267,6 +296,7 @@ async function main() {
     console.log("run it again (captured posts are kept and skipped); a larger --delay helps.");
   }
   if (failures.length) {
+    console.log(`What the page looked like for each failed post is saved in ${DEBUG_DIR}`);
     console.log("Retry failed posts later (they're skipped until captured), or watch one with:");
     console.log(`  npm run capture:meta-thumbnails -- --headed --url https://www.instagram.com/reel/${failures[0]}/`);
   }
