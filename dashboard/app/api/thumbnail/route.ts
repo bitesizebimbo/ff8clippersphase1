@@ -1,25 +1,29 @@
-import { NextResponse } from "next/server";
-
-// Resolves a content post URL to a real preview image, so the library grid
-// can show an actual thumbnail instead of the generic color-plus-initial
-// placeholder. Two very different strategies per platform:
+// Serves a content post's real preview image, so the library grid can show
+// an actual thumbnail instead of the generic color-plus-initial
+// placeholder. Used directly as an <img src> — it responds with the image
+// itself (or a redirect to it), never JSON. Per platform:
 //
 // - YouTube's thumbnail CDN URL is a deterministic function of the video
-//   ID, so it's computed directly here — no network call, can't fail.
-// - TikTok has no such pattern; its real (signed, expiring) CDN thumbnail
-//   URL is only available via TikTok's own oEmbed endpoint, so this makes
-//   that one server-side call (oEmbed is a public embedding protocol meant
-//   for exactly this, and doing it server-side avoids relying on TikTok's
-//   CORS policy for browser fetches).
-// - Any other platform (Instagram, etc.) has no supported path yet —
-//   Instagram's oEmbed requires a Meta developer app token we don't have —
-//   so it returns null and the caller keeps the placeholder.
+//   ID, so this just redirects to it — no upstream call, can't fail.
+// - TikTok has no such pattern; its real CDN thumbnail URL is only
+//   available via TikTok's own oEmbed endpoint, and that URL is *signed and
+//   expires within days*. Handing it to the browser (as this route used to)
+//   meant cached thumbnails went dead and fell back to the placeholder. So
+//   this fetches a fresh signed URL, downloads the image server-side and
+//   serves the bytes itself — whatever the browser/CDN caches is the image,
+//   which never expires.
+// - Meta (Instagram) thumbnails don't go through here at all: they're
+//   pre-captured screenshots served from public/thumbnails/ (see
+//   lib/thumbnails.ts).
 //
-// Every failure path returns `{ thumbnailUrl: null }` rather than an error
-// status: a missing thumbnail should never be worse than the placeholder
-// that was already there.
+// Every failure path is a 404, which the <img>'s onError turns back into
+// the placeholder: a missing thumbnail is never worse than what was there.
 
 const TIKTOK_OEMBED_HOSTS = new Set(["tiktok.com", "www.tiktok.com", "vt.tiktok.com", "vm.tiktok.com"]);
+
+// The served image never changes, so browsers keep it a week and a shared
+// CDN a month.
+const IMAGE_CACHE_CONTROL = "public, max-age=604800, s-maxage=2592000, stale-while-revalidate=2592000";
 
 function youTubeThumbnailUrl(url: string): string | null {
   let videoId: string | null = null;
@@ -41,7 +45,7 @@ function youTubeThumbnailUrl(url: string): string | null {
   return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-async function tikTokThumbnailUrl(url: string): Promise<string | null> {
+async function tikTokThumbnail(url: string): Promise<Response | null> {
   let hostname: string;
   try {
     hostname = new URL(url).hostname;
@@ -50,41 +54,53 @@ async function tikTokThumbnailUrl(url: string): Promise<string | null> {
   }
   if (!TIKTOK_OEMBED_HOSTS.has(hostname)) return null;
 
-  const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`;
   try {
-    const res = await fetch(oembedUrl, {
+    const oembed = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
       signal: AbortSignal.timeout(5000),
-      // Real thumbnails don't change; a day-long cache keeps repeat loads
-      // of the same post from re-hitting TikTok's oEmbed endpoint.
-      next: { revalidate: 86_400 },
+      // Signed thumbnail URLs stay valid for a few days, so a few hours of
+      // caching the oEmbed lookup is safe and saves repeat calls.
+      next: { revalidate: 21_600 },
     });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { thumbnail_url?: string };
-    return typeof data.thumbnail_url === "string" ? data.thumbnail_url : null;
+    if (!oembed.ok) return null;
+    const { thumbnail_url } = (await oembed.json()) as { thumbnail_url?: string };
+    if (typeof thumbnail_url !== "string") return null;
+
+    const image = await fetch(thumbnail_url, { signal: AbortSignal.timeout(8000), cache: "no-store" });
+    const contentType = image.headers.get("content-type") ?? "";
+    if (!image.ok || !contentType.startsWith("image/")) return null;
+
+    return new Response(await image.arrayBuffer(), {
+      headers: { "Content-Type": contentType, "Cache-Control": IMAGE_CACHE_CONTROL },
+    });
   } catch (err) {
-    console.warn(`[thumbnail] TikTok oEmbed failed for ${url}`, err);
+    console.warn(`[thumbnail] TikTok thumbnail failed for ${url}`, err);
     return null;
   }
+}
+
+function notFound() {
+  // Short cache so a transient TikTok failure doesn't stick for long.
+  return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
   const platform = searchParams.get("platform");
+  if (!url) return notFound();
 
-  if (!url) {
-    return NextResponse.json({ thumbnailUrl: null }, { status: 400 });
-  }
-
-  let thumbnailUrl: string | null = null;
   if (platform === "YouTube") {
-    thumbnailUrl = youTubeThumbnailUrl(url);
-  } else if (platform === "TikTok") {
-    thumbnailUrl = await tikTokThumbnailUrl(url);
+    const thumbnailUrl = youTubeThumbnailUrl(url);
+    if (!thumbnailUrl) return notFound();
+    return new Response(null, {
+      status: 307,
+      headers: { Location: thumbnailUrl, "Cache-Control": IMAGE_CACHE_CONTROL },
+    });
   }
 
-  return NextResponse.json(
-    { thumbnailUrl },
-    { headers: { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" } },
-  );
+  if (platform === "TikTok") {
+    return (await tikTokThumbnail(url)) ?? notFound();
+  }
+
+  return notFound();
 }
