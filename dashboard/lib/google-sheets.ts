@@ -47,9 +47,13 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   Tanggal: ["Date"],
 };
 
+// Keyed by a month name's first three letters. English plus the Indonesian
+// names whose prefix differs (Mei, Agustus, Oktober, Desember) — FF8 Phase
+// 1's sheet writes dates in Indonesian, e.g. "6 Agustus 2026".
 const MONTH_ABBR: Record<string, string> = {
   jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
   jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  mei: "05", agu: "08", okt: "10", des: "12",
 };
 
 // publishDate must end up as an ISO "YYYY-MM-DD" string — every date
@@ -62,7 +66,8 @@ function normalizeDateValue(raw: string): string {
   if (!trimmed) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
 
-  const dMonY = trimmed.match(/^(\d{1,2})[-/]([A-Za-z]{3,})[-/](\d{2,4})$/);
+  // "24-Aug-26", "24/Aug/2026", "6 Agustus 2026"
+  const dMonY = trimmed.match(/^(\d{1,2})[-/\s]+([A-Za-z]{3,})[-/\s]+(\d{2,4})$/);
   if (dMonY) {
     const [, day, monName, yearRaw] = dMonY;
     const month = MONTH_ABBR[monName.slice(0, 3).toLowerCase()];
@@ -72,7 +77,16 @@ function normalizeDateValue(raw: string): string {
     }
   }
 
-  // Fallback for other formats (e.g. "8/24/2026", "Aug 24, 2026").
+  // "9/27/2026" — US month/day/year, as the sheets' slash dates are.
+  // Parsed by hand: new Date() below would read it as *local* midnight, and
+  // toISOString() can then shift it a day back in timezones ahead of UTC.
+  const mdy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const [, month, day, year] = mdy;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  // Fallback for other formats (e.g. "Aug 24, 2026").
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toISOString().slice(0, 10);
@@ -285,6 +299,25 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         thumbnailSeed: slugify(`${username}-${rowNo}`),
       };
     });
+
+  // ids key React lists, so they must be unique. A row pasted twice (same
+  // Content ID) would otherwise collide — keep both rows, suffix the repeat.
+  const idCounts = new Map<string, number>();
+  const duplicateIds = new Set<string>();
+  for (const record of records) {
+    const seen = idCounts.get(record.id) ?? 0;
+    idCounts.set(record.id, seen + 1);
+    if (seen > 0) {
+      duplicateIds.add(record.id);
+      record.id = `${record.id}-${seen + 1}`;
+    }
+  }
+  if (duplicateIds.size > 0) {
+    console.warn(
+      `[google-sheets] campaign "${campaignId}": duplicate Content ID(s) ${[...duplicateIds].join(", ")}; ` +
+        "kept every row, with repeats given a suffixed id.",
+    );
+  }
 
   const withDate = records.filter((record) => record.publishDate !== "");
   const droppedForDate = records.length - withDate.length;
