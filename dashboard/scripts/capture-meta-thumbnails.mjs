@@ -15,6 +15,7 @@
 // redeploy for the dashboard to pick them up.
 //
 // Setup (once):  npm install && npx playwright install chromium
+//                (and have Google Chrome installed — it's what plays the videos)
 // Run:           npm run capture:meta-thumbnails
 // Options:
 //   --url <post url>   capture just this post (repeatable); skips the sheets
@@ -156,6 +157,25 @@ async function closePopups(page) {
 
 class RateLimitedError extends Error {}
 
+// Instagram's videos are H.264, which Playwright's bundled Chromium can't
+// play (Instagram shows "Sorry, we're having trouble playing this video").
+// Google Chrome can, so use the installed Chrome when there is one.
+let usingBundledChromium = false;
+
+async function launchBrowser() {
+  const headless = !args.headed;
+  try {
+    return await chromium.launch({ channel: "chrome", headless });
+  } catch {
+    console.warn(
+      "  Google Chrome not found — using Playwright's Chromium, which usually can't play Instagram videos.\n" +
+        "  Install Chrome from https://www.google.com/chrome if posts fail with \"the video couldn't play\".",
+    );
+    usingBundledChromium = true;
+    return chromium.launch({ headless });
+  }
+}
+
 async function capture(page, shortcode, outPath) {
   let response;
   try {
@@ -207,14 +227,23 @@ async function capture(page, shortcode, outPath) {
   if (found === "VIDEO") {
     // Freeze on a real frame (not a black, still-loading one) so the
     // screenshot is stable.
-    await media.evaluate(async (el) => {
+    const playable = await media.evaluate(async (el) => {
       el.muted = true;
-      const deadline = Date.now() + 8000;
-      while (el.readyState < 2 && Date.now() < deadline) {
+      el.play?.().catch(() => {});
+      const deadline = Date.now() + 10_000;
+      while (el.readyState < 2 && !el.error && Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
       el.pause();
+      return el.readyState >= 2;
     });
+    // Never save a black "can't play this video" frame as a thumbnail.
+    if (!playable) {
+      throw new Error(
+        "the video couldn't play" +
+          (usingBundledChromium ? " — install Google Chrome, which can play Instagram videos" : ""),
+      );
+    }
   }
 
   // A popup can still slide in late; close it again right before shooting.
@@ -242,7 +271,7 @@ async function main() {
   if (todo.length === 0 || limit <= 0) return;
 
   await mkdir(THUMBNAIL_DIR, { recursive: true });
-  const browser = await chromium.launch({ headless: !args.headed });
+  const browser = await launchBrowser();
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     locale: "en-US",
