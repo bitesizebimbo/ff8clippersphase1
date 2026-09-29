@@ -31,7 +31,9 @@
 //
 // Reading the sheets uses the same service account as the dashboard
 // (GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY, read from
-// .env.local if present). Needs Node 22.18+ (imports lib/campaigns.ts).
+// .env.local if present). Without those, it uses the saved link list in
+// data/meta-post-links.txt instead (one post URL per line — refresh it when
+// new posts are added). Needs Node 22.18+ (imports lib/campaigns.ts).
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -43,6 +45,7 @@ import { chromium } from "playwright";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const THUMBNAIL_DIR = path.join(ROOT, "public", "thumbnails");
 const MANIFEST_PATH = path.join(ROOT, "data", "thumbnails.json");
+const SAVED_LINKS_PATH = path.join(ROOT, "data", "meta-post-links.txt");
 
 // Keep in sync with lib/thumbnails.ts — the manifest keys written here are
 // what it looks up.
@@ -86,10 +89,16 @@ async function linksFromSheets() {
   const email = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
   const key = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
   if (!email || !key) {
-    throw new Error(
-      "GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY not set (add them to .env.local), " +
-        "or pass posts directly with --url.",
-    );
+    const saved = await readFile(SAVED_LINKS_PATH, "utf8").catch(() => null);
+    if (saved === null) {
+      throw new Error(
+        "GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY not set (add them to .env.local), " +
+          "or pass posts directly with --url.",
+      );
+    }
+    const links = saved.split("\n").map((line) => line.trim()).filter(Boolean);
+    console.log(`  No Google Sheets keys set — using the ${links.length} saved links in data/meta-post-links.txt`);
+    return links;
   }
   const client = new JWT({
     email,
