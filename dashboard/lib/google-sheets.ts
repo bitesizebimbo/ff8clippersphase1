@@ -47,9 +47,13 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   Tanggal: ["Date"],
 };
 
+// Keyed by a month name's first three letters. English plus the Indonesian
+// names whose prefix differs (Mei, Agustus, Oktober, Desember) — FF8 Phase
+// 1's sheet writes dates in Indonesian, e.g. "6 Agustus 2026".
 const MONTH_ABBR: Record<string, string> = {
   jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
   jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  mei: "05", agu: "08", okt: "10", des: "12",
 };
 
 // publishDate must end up as an ISO "YYYY-MM-DD" string — every date
@@ -62,7 +66,8 @@ function normalizeDateValue(raw: string): string {
   if (!trimmed) return "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
 
-  const dMonY = trimmed.match(/^(\d{1,2})[-/]([A-Za-z]{3,})[-/](\d{2,4})$/);
+  // "24-Aug-26", "24/Aug/2026", "6 Agustus 2026"
+  const dMonY = trimmed.match(/^(\d{1,2})[-/\s]+([A-Za-z]{3,})[-/\s]+(\d{2,4})$/);
   if (dMonY) {
     const [, day, monName, yearRaw] = dMonY;
     const month = MONTH_ABBR[monName.slice(0, 3).toLowerCase()];
@@ -72,7 +77,16 @@ function normalizeDateValue(raw: string): string {
     }
   }
 
-  // Fallback for other formats (e.g. "8/24/2026", "Aug 24, 2026").
+  // "9/27/2026" — US month/day/year, as the sheets' slash dates are.
+  // Parsed by hand: new Date() below would read it as *local* midnight, and
+  // toISOString() can then shift it a day back in timezones ahead of UTC.
+  const mdy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) {
+    const [, month, day, year] = mdy;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  // Fallback for other formats (e.g. "Aug 24, 2026").
   const parsed = new Date(trimmed);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toISOString().slice(0, 10);
@@ -108,6 +122,29 @@ function slugify(s: string): string {
 
 let cachedClient: JWT | null = null;
 
+// The private key env var is pasted by hand into Vercel, and the easy
+// mistakes all make OpenSSL reject it ("DECODER routines::unsupported"),
+// silently emptying every campaign. Accept the common variants:
+// - escaped "\n" instead of real newlines (single-line paste)
+// - surrounding quotes copied along with it
+// - Windows "\r\n" line endings
+// - the whole service-account JSON file instead of just its private_key
+function normalizePrivateKey(raw: string): string {
+  let key = raw.trim();
+  if (key.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(key) as { private_key?: unknown };
+      if (typeof parsed.private_key === "string") key = parsed.private_key.trim();
+    } catch {
+      // Not JSON after all — use it as-is.
+    }
+  }
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1);
+  }
+  return key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
+}
+
 function getAuthClient(): JWT | null {
   const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
   const privateKeyRaw = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
@@ -115,10 +152,7 @@ function getAuthClient(): JWT | null {
   if (cachedClient) return cachedClient;
   cachedClient = new JWT({
     email: clientEmail,
-    // Vercel env vars are single-line; a key pasted with escaped \n needs
-    // un-escaping. A literal multi-line paste already has real newlines and
-    // this replace is a no-op either way.
-    key: privateKeyRaw.replace(/\\n/g, "\n"),
+    key: normalizePrivateKey(privateKeyRaw),
     scopes: [SHEETS_READONLY_SCOPE],
   });
   return cachedClient;
@@ -285,6 +319,25 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         thumbnailSeed: slugify(`${username}-${rowNo}`),
       };
     });
+
+  // ids key React lists, so they must be unique. A row pasted twice (same
+  // Content ID) would otherwise collide — keep both rows, suffix the repeat.
+  const idCounts = new Map<string, number>();
+  const duplicateIds = new Set<string>();
+  for (const record of records) {
+    const seen = idCounts.get(record.id) ?? 0;
+    idCounts.set(record.id, seen + 1);
+    if (seen > 0) {
+      duplicateIds.add(record.id);
+      record.id = `${record.id}-${seen + 1}`;
+    }
+  }
+  if (duplicateIds.size > 0) {
+    console.warn(
+      `[google-sheets] campaign "${campaignId}": duplicate Content ID(s) ${[...duplicateIds].join(", ")}; ` +
+        "kept every row, with repeats given a suffixed id.",
+    );
+  }
 
   const withDate = records.filter((record) => record.publishDate !== "");
   const droppedForDate = records.length - withDate.length;

@@ -90,7 +90,7 @@ scripts/
 | `ClassificationPerformance` | Ranked breakdown by one of the four classification dimensions. |
 | `ContentLibrary` / `ContentCard` / `ContentTable` | Grid/table content browser with sort, pagination, and empty state. |
 | `ContentDetailDrawer` | Side drawer (full-screen on mobile) with full metrics, classifications, and the external link CTA. |
-| `ContentThumbnail` | Deterministic placeholder art (see "On thumbnails" below). |
+| `ContentThumbnail` | Real post thumbnail over deterministic placeholder art (see "On thumbnails" below). |
 | `EmptyState`, `DashboardSkeleton` | Empty and loading states. |
 
 ## Data model
@@ -170,11 +170,24 @@ observations. A few product decisions follow from that:
    live-sync timestamp, since this is a static ingested export, not a
    polling connection.
 4. **On thumbnails.** The source data has no thumbnail images — only post
-   URLs. Rather than invent fake image URLs (which would either 404 or
-   hotlink an unrelated image), each card renders a deterministic muted
-   gradient placeholder seeded from the content id, with the creator's
-   initial and a platform badge. This is also why there's no "broken
-   thumbnail" state to handle — the placeholder can't fail to load.
+   URLs — so each card first renders a deterministic muted gradient
+   placeholder (seeded from the content id, with the creator's initial and
+   a platform badge), and a real thumbnail is layered on top when one can
+   be found. If the image fails to load, the placeholder simply stays.
+   - **TikTok / YouTube:** served by `app/api/thumbnail/route.ts`. TikTok's
+     oEmbed thumbnail URLs are signed and expire within days, so the route
+     downloads the image and serves the bytes itself rather than handing
+     the browser a link that will go dead.
+   - **Meta (Instagram):** there's no public thumbnail API, so screenshots
+     are captured ahead of time by `npm run capture:meta-thumbnails` (opens
+     each post in a real browser, closes the login/cookie popups, and
+     screenshots the video). They land in `public/thumbnails/`, indexed by
+     `data/thumbnails.json`. One-time setup: `npx playwright install
+     chromium`; needs the Google Sheets credentials in `.env.local` and
+     Node 22.18+. Posts are spaced ~8–16s apart (`--delay`), and the script backs
+     off and stops cleanly if Instagram rate-limits it. Re-run after new
+     posts are added — already-captured posts
+     are skipped — then commit both and redeploy.
 5. **Titles/captions are synthesized**, since the source has no per-post
    title or caption column: title is `"{Content Type} · {Product}"`,
    caption is `"@{creator} on {platform}"`. Search still matches against
