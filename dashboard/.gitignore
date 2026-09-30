@@ -42,3 +42,6 @@ next-env.d.ts
 
 # capture-meta-thumbnails failure screenshots
 /capture-debug/
+
+# HTML snapshots from npm run export:html
+/exports/

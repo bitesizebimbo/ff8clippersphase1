@@ -320,3 +320,13 @@ in `lib/analytics.ts` need no changes either way.
 - Filter/sort/search/chart state is stored in the URL (`?platform=TikTok&range=last7&sort=views-desc&...`), so any filtered view is a shareable link.
 - The dashboard is read-only in v1 (per the brief's assumptions) — there is no write path.
 - v1 architecture assumes TikTok/YouTube as the platforms in play, but nothing is hardcoded to a fixed platform list beyond the `PlatformBadge` style map, which falls back to a neutral badge for any unrecognized platform string.
+
+## Exporting a standalone HTML file
+
+`npm run export:html` (with the dashboard running via `npm run dev` or
+`npm start`) saves the current page as one self-contained HTML file in
+`exports/` — styles, fonts, charts and thumbnails all inlined, so it opens
+anywhere with no server, e.g. to email. It's a snapshot: numbers and charts
+are frozen as rendered, and filters/tabs don't work in the file. Pass
+`--url` with search params to export a specific view (e.g. another
+campaign) and `--out` to choose the filename.
