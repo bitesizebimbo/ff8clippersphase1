@@ -339,8 +339,22 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
     );
   }
 
-  const withDate = records.filter((record) => record.publishDate !== "");
-  const droppedForDate = records.length - withDate.length;
+  // Sheets pre-fill rows for scheduled posts (Content ID and planned date,
+  // but no link yet, 0 views, "#N/A" lookups). Those aren't content yet:
+  // counting them adds zero-view posts and pushes the dataset's latest date
+  // into the future, which date presets like "Last 7 Days" anchor to. A row
+  // that has views but is missing its link is still real data, so keep it.
+  const posted = records.filter((record) => record.contentUrl !== "" || record.views > 0);
+  const notYetPosted = records.length - posted.length;
+  if (notYetPosted > 0) {
+    console.info(
+      `[google-sheets] campaign "${campaignId}": skipped ${notYetPosted} planned row(s) with no ` +
+        "Link Post and no views yet.",
+    );
+  }
+
+  const withDate = posted.filter((record) => record.publishDate !== "");
+  const droppedForDate = posted.length - withDate.length;
   if (droppedForDate > 0) {
     console.warn(
       `[google-sheets] campaign "${campaignId}": dropped ${droppedForDate} row(s) with a ` +
