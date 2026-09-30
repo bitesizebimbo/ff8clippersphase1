@@ -28,10 +28,20 @@ export const STATIC_CAMPAIGNS: CampaignMeta[] = [];
 // Each group is deployed as its own dashboard (a separate Vercel project
 // from this same repo), picked by the DASHBOARD_GROUP env var — see
 // dashboardGroup() and the README's "Clippers and OA dashboards". Each
-// group's sheets are shared with that group's own service account.
+// group's sheets are shared with that group's own service account, whose
+// key lives under that group's own env var names, so both keys can sit
+// side by side in one environment.
 export const DASHBOARD_GROUPS = {
-  clippers: { title: "Samsung Clippers" },
-  oa: { title: "Samsung OA" },
+  clippers: {
+    title: "Samsung Clippers",
+    emailEnv: "GOOGLE_SHEETS_CLIENT_EMAIL",
+    keyEnv: "GOOGLE_SHEETS_PRIVATE_KEY",
+  },
+  oa: {
+    title: "Samsung OA",
+    emailEnv: "OA_GOOGLE_SHEETS_CLIENT_EMAIL",
+    keyEnv: "OA_GOOGLE_SHEETS_PRIVATE_KEY",
+  },
 } as const;
 
 export type DashboardGroup = keyof typeof DASHBOARD_GROUPS;

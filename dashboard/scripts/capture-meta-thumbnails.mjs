@@ -31,7 +31,7 @@
 // captured so far. Just run it again later to continue.
 //
 // Reading the sheets uses the same service account as the dashboard
-// (GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY, read from
+// (GOOGLE_SHEETS_* for Clippers, OA_GOOGLE_SHEETS_* for OA, read from
 // .env.local if present). Without those, it uses the saved link list in
 // data/meta-post-links.txt instead (one post URL per line — refresh it when
 // new posts are added). Needs Node 22.18+ (imports lib/campaigns.ts).
@@ -89,13 +89,17 @@ async function linksFromSheets() {
   } catch {
     // No .env.local — fall back to whatever is already in the environment.
   }
-  const email = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const key = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  const { DASHBOARD_GROUPS, LIVE_CAMPAIGN_SOURCES, dashboardGroup } = await import("../lib/campaigns.ts");
+  // Same group (Clippers or OA) as the dashboard, read with that group's key.
+  const group = dashboardGroup();
+  const { emailEnv, keyEnv } = DASHBOARD_GROUPS[group];
+  const email = process.env[emailEnv];
+  const key = process.env[keyEnv];
   if (!email || !key) {
     const saved = await readFile(SAVED_LINKS_PATH, "utf8").catch(() => null);
     if (saved === null) {
       throw new Error(
-        "GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY not set (add them to .env.local), " +
+        `${emailEnv} / ${keyEnv} not set (add them to .env.local), ` +
           "or pass posts directly with --url.",
       );
     }
@@ -108,10 +112,6 @@ async function linksFromSheets() {
     key: key.replace(/\\n/g, "\n"),
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
-  const { LIVE_CAMPAIGN_SOURCES, dashboardGroup } = await import("../lib/campaigns.ts");
-  // Same group (Clippers or OA) as the dashboard — the key only reads its
-  // own group's sheets.
-  const group = dashboardGroup();
 
   const links = [];
   for (const { name, sheet } of LIVE_CAMPAIGN_SOURCES.filter((c) => c.group === group)) {

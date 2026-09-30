@@ -38,6 +38,7 @@ export async function loadAllContent(): Promise<LoadedDashboardData> {
     LIVE_CAMPAIGN_SOURCES.filter((source) => source.group === group).map(async (source) => {
       const records = await fetchSheetCampaignRecords({
         campaignId: source.id,
+        group: source.group,
         spreadsheetId: source.sheet.spreadsheetId,
         sheetName: source.sheet.sheetName,
       });

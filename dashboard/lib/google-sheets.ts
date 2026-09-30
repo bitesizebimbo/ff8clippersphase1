@@ -1,6 +1,7 @@
 import "server-only";
 
 import { JWT } from "google-auth-library";
+import { DASHBOARD_GROUPS, type DashboardGroup } from "./campaigns";
 import type { RawContentRecord } from "./types";
 
 // Fetches one campaign's rows from a Google Sheet, using a service account
@@ -129,7 +130,8 @@ function slugify(s: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
-let cachedClient: JWT | null = null;
+// One client per group — each group reads with its own service account.
+const cachedClients = new Map<DashboardGroup, JWT>();
 
 // The private key env var is pasted by hand into Vercel, and the easy
 // mistakes all make OpenSSL reject it ("DECODER routines::unsupported"),
@@ -154,21 +156,26 @@ function normalizePrivateKey(raw: string): string {
   return key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
 }
 
-function getAuthClient(): JWT | null {
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKeyRaw = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+function getAuthClient(group: DashboardGroup): JWT | null {
+  const { emailEnv, keyEnv } = DASHBOARD_GROUPS[group];
+  const clientEmail = process.env[emailEnv];
+  const privateKeyRaw = process.env[keyEnv];
   if (!clientEmail || !privateKeyRaw) return null;
-  if (cachedClient) return cachedClient;
-  cachedClient = new JWT({
-    email: clientEmail,
-    key: normalizePrivateKey(privateKeyRaw),
-    scopes: [SHEETS_READONLY_SCOPE],
-  });
-  return cachedClient;
+  let client = cachedClients.get(group);
+  if (!client) {
+    client = new JWT({
+      email: clientEmail,
+      key: normalizePrivateKey(privateKeyRaw),
+      scopes: [SHEETS_READONLY_SCOPE],
+    });
+    cachedClients.set(group, client);
+  }
+  return client;
 }
 
 export interface SheetCampaignSource {
   campaignId: string;
+  group: DashboardGroup;
   spreadsheetId: string;
   sheetName: string;
 }
@@ -176,11 +183,12 @@ export interface SheetCampaignSource {
 export async function fetchSheetCampaignRecords(
   source: SheetCampaignSource,
 ): Promise<RawContentRecord[]> {
-  const client = getAuthClient();
+  const client = getAuthClient(source.group);
   if (!client) {
+    const { emailEnv, keyEnv } = DASHBOARD_GROUPS[source.group];
     console.warn(
       `[google-sheets] Skipping campaign "${source.campaignId}": ` +
-        "GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY not configured.",
+        `${emailEnv} / ${keyEnv} not configured.`,
     );
     return [];
   }

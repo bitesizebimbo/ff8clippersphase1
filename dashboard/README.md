@@ -329,15 +329,19 @@ two Vercel projects pointing at this same repo (root directory
 `LIVE_CAMPAIGN_SOURCES` (`lib/campaigns.ts`) has a `group: "clippers" | "oa"`,
 and each deployment picks its group with an env var.
 
-| Vercel project | `DASHBOARD_GROUP` | `GOOGLE_SHEETS_CLIENT_EMAIL` / `GOOGLE_SHEETS_PRIVATE_KEY` |
-|---|---|---|
-| Clippers (existing) | `clippers` (or unset) | `sheet-reader-clippers@clippers-project-508303.iam.gserviceaccount.com` key |
-| OA | `oa` | `oa-dashboard-reader@oa-dashboard-509912.iam.gserviceaccount.com` key |
+Each group reads its sheets with its own service account, whose key lives
+under its own env var names, so both keys can sit side by side in one place
+(`.env.local`, a Claude Code cloud environment, Vercel) without retyping:
 
-Each group's sheets are shared with that group's own service account, so
-the Clippers deployment can't read OA sheets and vice versa. To set up the
-OA project: in Vercel, **Add New → Project**, import this repo, set the root
-directory to `dashboard`, add the three env vars above, deploy. To add a
+| Group | Service account | Env vars |
+|---|---|---|
+| Clippers | `sheet-reader-clippers@clippers-project-508303.iam.gserviceaccount.com` | `GOOGLE_SHEETS_CLIENT_EMAIL`, `GOOGLE_SHEETS_PRIVATE_KEY` |
+| OA | `oa-dashboard-reader@oa-dashboard-509912.iam.gserviceaccount.com` | `OA_GOOGLE_SHEETS_CLIENT_EMAIL`, `OA_GOOGLE_SHEETS_PRIVATE_KEY` |
+
+Which dashboard you get is only `DASHBOARD_GROUP` (`clippers`, the default,
+or `oa`). To set up the OA project: in Vercel, **Add New → Project**,
+import this repo, set the root directory to `dashboard`, add
+`DASHBOARD_GROUP=oa` plus the two `OA_` vars, deploy. To add a
 campaign to either dashboard, add its entry with the right `group` and
 redeploy both (a campaign in the other group is simply ignored).
 
