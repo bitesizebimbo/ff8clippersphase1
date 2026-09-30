@@ -321,6 +321,26 @@ in `lib/analytics.ts` need no changes either way.
 - The dashboard is read-only in v1 (per the brief's assumptions) — there is no write path.
 - v1 architecture assumes TikTok/YouTube as the platforms in play, but nothing is hardcoded to a fixed platform list beyond the `PlatformBadge` style map, which falls back to a neutral badge for any unrecognized platform string.
 
+## Clippers and OA dashboards
+
+Clippers and OA are two separate dashboards built from this one codebase:
+two Vercel projects pointing at this same repo (root directory
+`dashboard/`), each showing only its own campaigns. Every campaign in
+`LIVE_CAMPAIGN_SOURCES` (`lib/campaigns.ts`) has a `group: "clippers" | "oa"`,
+and each deployment picks its group with an env var.
+
+| Vercel project | `DASHBOARD_GROUP` | `GOOGLE_SHEETS_CLIENT_EMAIL` / `GOOGLE_SHEETS_PRIVATE_KEY` |
+|---|---|---|
+| Clippers (existing) | `clippers` (or unset) | `sheet-reader-clippers@clippers-project-508303.iam.gserviceaccount.com` key |
+| OA | `oa` | `oa-dashboard-reader@oa-dashboard-509912.iam.gserviceaccount.com` key |
+
+Each group's sheets are shared with that group's own service account, so
+the Clippers deployment can't read OA sheets and vice versa. To set up the
+OA project: in Vercel, **Add New → Project**, import this repo, set the root
+directory to `dashboard`, add the three env vars above, deploy. To add a
+campaign to either dashboard, add its entry with the right `group` and
+redeploy both (a campaign in the other group is simply ignored).
+
 ## Exporting a standalone HTML file
 
 `npm run build && npm run export:html` saves the whole dashboard as one
@@ -329,7 +349,8 @@ fonts and thumbnails are all inlined, so it opens anywhere with no server
 (e.g. to email). It runs the same `DashboardShell` over a snapshot of the
 data taken at export time: filters, tabs, compare mode, the detail drawer
 and "Load more" all work. The current view lives in the URL hash, so
-`dashboard.html#campaign=r14` opens R14. `--view "campaign=r14"` sets the
+`dashboard.html#campaign=r14` opens R14. Set `DASHBOARD_GROUP=oa` on both
+commands to export the OA dashboard. `--view "campaign=r14"` sets the
 view the file opens on, and `--out` chooses the filename. Pieces live in
 `scripts/export/` (browser entry, a hash-backed `next/navigation` stand-in,
 and the data loader).

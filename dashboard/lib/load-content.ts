@@ -1,7 +1,12 @@
 import "server-only";
 
 import { toContentItem } from "./analytics";
-import { LIVE_CAMPAIGN_SOURCES, STATIC_CAMPAIGNS, type CampaignMeta } from "./campaigns";
+import {
+  LIVE_CAMPAIGN_SOURCES,
+  STATIC_CAMPAIGNS,
+  dashboardGroup,
+  type CampaignMeta,
+} from "./campaigns";
 import { fetchSheetCampaignRecords } from "./google-sheets";
 import type { ContentItem, RawContentRecord } from "./types";
 
@@ -27,8 +32,10 @@ export async function loadAllContent(): Promise<LoadedDashboardData> {
     (STATIC_CAMPAIGN_DATA[c.id] ?? []).map(toContentItem),
   );
 
+  // Only this deployment's group (Clippers or OA) — see dashboardGroup().
+  const group = dashboardGroup();
   const liveResults = await Promise.all(
-    LIVE_CAMPAIGN_SOURCES.map(async (source) => {
+    LIVE_CAMPAIGN_SOURCES.filter((source) => source.group === group).map(async (source) => {
       const records = await fetchSheetCampaignRecords({
         campaignId: source.id,
         spreadsheetId: source.sheet.spreadsheetId,

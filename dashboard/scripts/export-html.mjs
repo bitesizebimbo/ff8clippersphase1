@@ -9,12 +9,14 @@
 // link like dashboard.html#campaign=r14&platform=TikTok opens that view.
 //
 // Run (needs a production build and the Google Sheets credentials, read
-// from .env.local if present):
+// from .env.local if present; DASHBOARD_GROUP picks Clippers or OA, same as
+// the site):
 //   npm run build && npm run export:html
+//   DASHBOARD_GROUP=oa npm run build && DASHBOARD_GROUP=oa npm run export:html
 // Options:
 //   --view <params>  view the file opens on when there's no hash, as search
 //                    params, e.g. "campaign=r14" or "mode=all"
-//   --out <path>     output file (default exports/dashboard-<date>.html)
+//   --out <path>     output file (default exports/dashboard-<group>-<date>.html)
 //   --port <n>       port for the temporary server used to fetch
 //                    thumbnails (default 3999)
 
@@ -42,7 +44,11 @@ const { values: args } = parseArgs({
 
 const today = new Date().toISOString().slice(0, 10);
 const outPath = path.resolve(
-  args.out ?? path.join(ROOT, "exports", `dashboard-${today}.html`),
+  args.out ?? path.join(
+    ROOT,
+    "exports",
+    `dashboard-${process.env.DASHBOARD_GROUP?.trim().toLowerCase() || "clippers"}-${today}.html`,
+  ),
 );
 
 if (!existsSync(BUILT_PAGE)) {

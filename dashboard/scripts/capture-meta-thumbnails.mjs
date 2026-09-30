@@ -108,10 +108,13 @@ async function linksFromSheets() {
     key: key.replace(/\\n/g, "\n"),
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
-  const { LIVE_CAMPAIGN_SOURCES } = await import("../lib/campaigns.ts");
+  const { LIVE_CAMPAIGN_SOURCES, dashboardGroup } = await import("../lib/campaigns.ts");
+  // Same group (Clippers or OA) as the dashboard — the key only reads its
+  // own group's sheets.
+  const group = dashboardGroup();
 
   const links = [];
-  for (const { name, sheet } of LIVE_CAMPAIGN_SOURCES) {
+  for (const { name, sheet } of LIVE_CAMPAIGN_SOURCES.filter((c) => c.group === group)) {
     const range = `'${sheet.sheetName.replace(/'/g, "''")}'`;
     try {
       const res = await client.request({
