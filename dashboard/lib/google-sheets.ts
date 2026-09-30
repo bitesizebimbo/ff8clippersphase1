@@ -104,6 +104,15 @@ function normalizeDateValue(raw: string): string {
   return "";
 }
 
+// The sheets' "Week" column holds reporting weeks like "W35" (also accept
+// "Week 35", "WK35" or a bare 35). Anything else ("#N/A ()", blank) is no week.
+function parseWeekNumber(raw: string): number | undefined {
+  const m = raw.trim().match(/^(?:w(?:ee)?k?\s*)?(\d{1,2})$/i);
+  if (!m) return undefined;
+  const week = Number(m[1]);
+  return week >= 1 && week <= 53 ? week : undefined;
+}
+
 // A1 notation requires a sheet name to be single-quoted whenever it isn't a
 // bare alphanumeric/underscore identifier (spaces, punctuation, a leading
 // digit — exactly what real-world tab names tend to have, e.g. "1. RNPL -
@@ -311,6 +320,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         cxp,
         commsFocus,
         hookTheme,
+        week: parseWeekNumber(str(row, "Week")),
         views: num(row, "Views"),
         likes: num(row, "Like"),
         comments: num(row, "Comment"),

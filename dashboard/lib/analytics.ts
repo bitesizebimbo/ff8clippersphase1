@@ -121,20 +121,32 @@ export function aggregateByDate(
     .map(([date, recs]) => bucketToPoint(date, formatShortDate(date), recs));
 }
 
-/** Groups daily records into ISO (Mon-Sun) weeks and reduces each week to a TimelinePoint. */
+/**
+ * Groups daily records into weeks and reduces each week to a TimelinePoint.
+ *
+ * A record's week is the sheet's own reporting week when it has one — teams
+ * assign those by hand (e.g. a Monday counted with the previous week), and
+ * the chart should add up the same way their own pivot does. Records
+ * without one fall back to the ISO (Mon-Sun) week of their date.
+ */
 export function aggregateByWeek(
   records: DailyPerformanceRecord[],
 ): TimelinePoint[] {
-  const buckets = new Map<string, DailyPerformanceRecord[]>();
+  const buckets = new Map<string, { week: number; start: string; recs: DailyPerformanceRecord[] }>();
   for (const r of records) {
-    const weekStart = startOfIsoWeek(r.date);
-    const list = buckets.get(weekStart);
-    if (list) list.push(r);
-    else buckets.set(weekStart, [r]);
+    const week = r.week ?? getIsoWeekNumber(r.date);
+    const key = `${r.date.slice(0, 4)}-${String(week).padStart(2, "0")}`;
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.recs.push(r);
+      if (r.date < bucket.start) bucket.start = r.date;
+    } else {
+      buckets.set(key, { week, start: r.week ? r.date : startOfIsoWeek(r.date), recs: [r] });
+    }
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([weekStart, recs]) => bucketToPoint(weekStart, `WK${getIsoWeekNumber(weekStart)}`, recs));
+    .map(([, { week, start, recs }]) => ({ ...bucketToPoint(start, `WK${week}`, recs), weekNumber: week }));
 }
 
 function bucketToPoint(
@@ -203,6 +215,7 @@ export function toDailyRecords(items: ContentItem[]): DailyPerformanceRecord[] {
   return items.map((item) => ({
     date: item.publishDate,
     contentId: item.id,
+    week: item.week,
     views: item.views,
     likes: item.likes,
     comments: item.comments,
@@ -228,9 +241,12 @@ export function indexTimelineFromStart(
 ): TimelinePoint[] {
   const points = buildTimeline(records, granularity);
   if (points.length === 0) return points;
-  const start = points[0].bucketStart;
+  const first = points[0];
   return points.map((p) => {
-    const elapsedDays = daysBetweenIso(start, p.bucketStart);
+    if (granularity === "weekly" && first.weekNumber !== undefined && p.weekNumber !== undefined) {
+      return { ...p, label: `Week ${p.weekNumber - first.weekNumber + 1}` };
+    }
+    const elapsedDays = daysBetweenIso(first.bucketStart, p.bucketStart);
     const label =
       granularity === "weekly" ? `Week ${Math.round(elapsedDays / 7) + 1}` : `Day ${elapsedDays + 1}`;
     return { ...p, label };
