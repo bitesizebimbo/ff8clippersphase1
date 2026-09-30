@@ -158,8 +158,11 @@ function normalizePrivateKey(raw: string): string {
 
 function getAuthClient(group: DashboardGroup): JWT | null {
   const { emailEnv, keyEnv } = DASHBOARD_GROUPS[group];
-  const clientEmail = process.env[emailEnv];
-  const privateKeyRaw = process.env[keyEnv];
+  // A group without its own key falls back to the Clippers (default) key,
+  // for setups with only one key — the sheets then need sharing with it.
+  const fallback = DASHBOARD_GROUPS.clippers;
+  const clientEmail = process.env[emailEnv] ?? process.env[fallback.emailEnv];
+  const privateKeyRaw = process.env[keyEnv] ?? process.env[fallback.keyEnv];
   if (!clientEmail || !privateKeyRaw) return null;
   let client = cachedClients.get(group);
   if (!client) {

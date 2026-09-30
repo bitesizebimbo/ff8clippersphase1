@@ -93,8 +93,9 @@ async function linksFromSheets() {
   // Same group (Clippers or OA) as the dashboard, read with that group's key.
   const group = dashboardGroup();
   const { emailEnv, keyEnv } = DASHBOARD_GROUPS[group];
-  const email = process.env[emailEnv];
-  const key = process.env[keyEnv];
+  // No key of its own → the Clippers (default) key, as lib/google-sheets.ts.
+  const email = process.env[emailEnv] ?? process.env[DASHBOARD_GROUPS.clippers.emailEnv];
+  const key = process.env[keyEnv] ?? process.env[DASHBOARD_GROUPS.clippers.keyEnv];
   if (!email || !key) {
     const saved = await readFile(SAVED_LINKS_PATH, "utf8").catch(() => null);
     if (saved === null) {

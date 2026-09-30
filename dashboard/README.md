@@ -338,6 +338,10 @@ under its own env var names, so both keys can sit side by side in one place
 | Clippers | `sheet-reader-clippers@clippers-project-508303.iam.gserviceaccount.com` | `GOOGLE_SHEETS_CLIENT_EMAIL`, `GOOGLE_SHEETS_PRIVATE_KEY` |
 | OA | `oa-dashboard-reader@oa-dashboard-509912.iam.gserviceaccount.com` | `OA_GOOGLE_SHEETS_CLIENT_EMAIL`, `OA_GOOGLE_SHEETS_PRIVATE_KEY` |
 
+If the `OA_` vars aren't set, OA falls back to the Clippers key — which
+works as long as the OA sheets are also shared (Viewer) with the Clippers
+service account.
+
 Which dashboard you get is only `DASHBOARD_GROUP` (`clippers`, the default,
 or `oa`). To set up the OA project: in Vercel, **Add New → Project**,
 import this repo, set the root directory to `dashboard`, add
