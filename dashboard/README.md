@@ -323,10 +323,13 @@ in `lib/analytics.ts` need no changes either way.
 
 ## Exporting a standalone HTML file
 
-`npm run export:html` (with the dashboard running via `npm run dev` or
-`npm start`) saves the current page as one self-contained HTML file in
-`exports/` — styles, fonts, charts and thumbnails all inlined, so it opens
-anywhere with no server, e.g. to email. It's a snapshot: numbers and charts
-are frozen as rendered, and filters/tabs don't work in the file. Pass
-`--url` with search params to export a specific view (e.g. another
-campaign) and `--out` to choose the filename.
+`npm run build && npm run export:html` saves the whole dashboard as one
+self-contained, interactive HTML file in `exports/`. Data, code, styles,
+fonts and thumbnails are all inlined, so it opens anywhere with no server
+(e.g. to email). It runs the same `DashboardShell` over a snapshot of the
+data taken at export time: filters, tabs, compare mode, the detail drawer
+and "Load more" all work. The current view lives in the URL hash, so
+`dashboard.html#campaign=r14` opens R14. `--view "campaign=r14"` sets the
+view the file opens on, and `--out` chooses the filename. Pieces live in
+`scripts/export/` (browser entry, a hash-backed `next/navigation` stand-in,
+and the data loader).

@@ -13,7 +13,7 @@ const ROUTE_SUPPORTED_PLATFORMS = new Set(["YouTube", "TikTok"]);
 // Where this post's real thumbnail comes from, if anywhere: a pre-captured
 // screenshot (Meta — see lib/thumbnails.ts), else the thumbnail route.
 // Anything else skips the request entirely and keeps the placeholder.
-function thumbnailSrc(contentUrl: string, platform: Platform): string | null {
+export function thumbnailSrc(contentUrl: string, platform: Platform): string | null {
   const captured = capturedThumbnailFor(contentUrl);
   if (captured) return captured;
   if (!ROUTE_SUPPORTED_PLATFORMS.has(platform)) return null;
