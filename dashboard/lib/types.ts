@@ -26,6 +26,12 @@ export interface RawContentRecord {
   commsFocus: string;
   /** Distinct from `contentType` — the sheet's own "Hook Theme" column (e.g. "Proud to Own"). */
   hookTheme: string;
+  /**
+   * The sheet's own "Week" column as a number ("W35" -> 35), when present.
+   * Teams assign reporting weeks by hand and they don't always match the
+   * calendar week of publishDate, so the weekly chart prefers this.
+   */
+  week?: number;
   views: number;
   likes: number;
   comments: number;
@@ -52,6 +58,8 @@ export interface ContentItem extends RawContentRecord {
 export interface DailyPerformanceRecord {
   date: string; // ISO date (YYYY-MM-DD), the metric OBSERVATION date
   contentId: string;
+  /** Reporting week from the source sheet, if it has one (see RawContentRecord.week). */
+  week?: number;
   views: number;
   likes: number;
   comments: number;
@@ -88,8 +96,10 @@ export type ClassificationView = "list" | "chart";
 export interface TimelinePoint {
   /** ISO date for daily granularity, or the ISO date of the week's Monday for weekly. */
   bucketStart: string;
-  /** Human label, e.g. "16 Aug" or "Week 33". */
+  /** Human label, e.g. "16 Aug" or "WK33". */
   label: string;
+  /** Weekly granularity only: the week number the bucket represents. */
+  weekNumber?: number;
   views: number;
   totalEngagements: number;
   engagementRate: number;
