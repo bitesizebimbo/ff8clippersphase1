@@ -348,17 +348,3 @@ import this repo, set the root directory to `dashboard`, add
 `DASHBOARD_GROUP=oa` plus the two `OA_` vars, deploy. To add a
 campaign to either dashboard, add its entry with the right `group` and
 redeploy both (a campaign in the other group is simply ignored).
-
-## Exporting a standalone HTML file
-
-`npm run build && npm run export:html` saves the whole dashboard as one
-self-contained, interactive HTML file in `exports/`. Data, code, styles,
-fonts and thumbnails are all inlined, so it opens anywhere with no server
-(e.g. to email). It runs the same `DashboardShell` over a snapshot of the
-data taken at export time: filters, tabs, compare mode, the detail drawer
-and "Load more" all work. The current view lives in the URL hash, so
-`dashboard.html#campaign=r14` opens R14. Set `DASHBOARD_GROUP=oa` on both
-commands to export the OA dashboard. `--view "campaign=r14"` sets the
-view the file opens on, and `--out` chooses the filename. Pieces live in
-`scripts/export/` (browser entry, a hash-backed `next/navigation` stand-in,
-and the data loader).
