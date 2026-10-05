@@ -180,6 +180,23 @@ async function launchBrowser() {
   }
 }
 
+// The post's own cover image, as Instagram advertises it for link previews
+// (<meta property="og:image">). Used when the video can't be played — e.g.
+// in Playwright's Chromium — since it's always this post's cover, unlike
+// guessing the largest image on the page. Returns false if there isn't one.
+async function saveCoverImage(page, outPath) {
+  const src = await page
+    .locator('meta[property="og:image"]')
+    .first()
+    .getAttribute("content", { timeout: 8000 })
+    .catch(() => null);
+  if (!src) return false;
+  const res = await page.request.get(src);
+  if (!res.ok() || !(res.headers()["content-type"] ?? "").startsWith("image/")) return false;
+  await writeFile(outPath, await res.body());
+  return true;
+}
+
 async function capture(page, shortcode, outPath) {
   let response;
   try {
@@ -194,6 +211,13 @@ async function capture(page, shortcode, outPath) {
   }
   if (response?.status() === 429 || page.url().includes("/accounts/login")) {
     throw new RateLimitedError("Instagram is asking to log in / rate-limiting");
+  }
+  // Without Chrome the video won't play, so use the cover — and never fall
+  // back to guessing the largest image on the page, which can pick up an
+  // unrelated post (a suggested reel) instead of this one.
+  if (usingBundledChromium) {
+    if (await saveCoverImage(page, outPath)) return;
+    throw new Error("no cover image on the page (the post may be deleted or private)");
   }
   // The login modal tends to appear a moment after load, not immediately.
   await page.waitForTimeout(3000);
@@ -242,6 +266,7 @@ async function capture(page, shortcode, outPath) {
       return el.readyState >= 2;
     });
     // Never save a black "can't play this video" frame as a thumbnail.
+    if (!playable && (await saveCoverImage(page, outPath))) return;
     if (!playable) {
       throw new Error(
         "the video couldn't play" +
