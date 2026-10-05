@@ -18,6 +18,23 @@ const PLATFORM_MAP: Record<string, string> = {
   Youtube: "YouTube",
 };
 
+// A blank Platform cell is filled in from the post link's domain.
+const PLATFORM_BY_HOST: [RegExp, string][] = [
+  [/(^|\.)tiktok\.com$/, "TikTok"],
+  [/(^|\.)(youtube\.com|youtu\.be)$/, "YouTube"],
+  [/(^|\.)instagram\.com$/, "Instagram"],
+];
+
+function platformFromUrl(url: string): string {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+  return PLATFORM_BY_HOST.find(([pattern]) => pattern.test(host))?.[1] ?? "";
+}
+
 // Required: the dashboard can't do much without these. "No" and "Tanggal"
 // also accept a newer schema's names via COLUMN_ALIASES below — every
 // campaign sheet in use right now uses "Content ID"/"Date" rather than the
@@ -46,6 +63,9 @@ const EXPECTED_COLUMNS = [
 const COLUMN_ALIASES: Record<string, string[]> = {
   No: ["Content ID"],
   Tanggal: ["Date"],
+  // FF8 Phase 1's sheet has no "Comms Focus" column; its "Promo" column
+  // holds the same thing. Sheets with both keep reading "Comms Focus".
+  "Comms Focus": ["Promo"],
 };
 
 // Keyed by a month name's first three letters. English plus the Indonesian
@@ -307,7 +327,10 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
   const records = dataRows
     .map((row, i) => {
       const rowNo = str(row, "No") || String(i + 1);
-      const platform = PLATFORM_MAP[str(row, "Platform")] ?? str(row, "Platform");
+      const contentUrl = str(row, "Link Post").replace(/\.+$/, "");
+      const platformCell = str(row, "Platform");
+      const platform =
+        PLATFORM_MAP[platformCell] ?? (platformCell || platformFromUrl(contentUrl));
       const product = str(row, "Product");
       const approach = str(row, "Approach");
       const contentType = str(row, "Content Type");
@@ -323,7 +346,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         caption: username ? `@${username} on ${platform}` : `${platform} post`,
         creator: username,
         platform,
-        contentUrl: str(row, "Link Post").replace(/\.+$/, ""),
+        contentUrl,
         publishDate: normalizeDateValue(str(row, "Tanggal")),
         product,
         approach,
