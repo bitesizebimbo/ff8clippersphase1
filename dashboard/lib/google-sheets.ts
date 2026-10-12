@@ -1,6 +1,7 @@
 import "server-only";
 
 import { JWT } from "google-auth-library";
+import { DASHBOARD_GROUPS, type DashboardGroup } from "./campaigns";
 import type { RawContentRecord } from "./types";
 
 // Fetches one campaign's rows from a Google Sheet, using a service account
@@ -16,6 +17,23 @@ const PLATFORM_MAP: Record<string, string> = {
   Tiktok: "TikTok",
   Youtube: "YouTube",
 };
+
+// A blank Platform cell is filled in from the post link's domain.
+const PLATFORM_BY_HOST: [RegExp, string][] = [
+  [/(^|\.)tiktok\.com$/, "TikTok"],
+  [/(^|\.)(youtube\.com|youtu\.be)$/, "YouTube"],
+  [/(^|\.)instagram\.com$/, "Instagram"],
+];
+
+function platformFromUrl(url: string): string {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+  return PLATFORM_BY_HOST.find(([pattern]) => pattern.test(host))?.[1] ?? "";
+}
 
 // Required: the dashboard can't do much without these. "No" and "Tanggal"
 // also accept a newer schema's names via COLUMN_ALIASES below — every
@@ -45,6 +63,9 @@ const EXPECTED_COLUMNS = [
 const COLUMN_ALIASES: Record<string, string[]> = {
   No: ["Content ID"],
   Tanggal: ["Date"],
+  // FF8 Phase 1's sheet has no "Comms Focus" column; its "Promo" column
+  // holds the same thing. Sheets with both keep reading "Comms Focus".
+  "Comms Focus": ["Promo"],
 };
 
 // Keyed by a month name's first three letters. English plus the Indonesian
@@ -129,7 +150,8 @@ function slugify(s: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
-let cachedClient: JWT | null = null;
+// One client per group — each group reads with its own service account.
+const cachedClients = new Map<DashboardGroup, JWT>();
 
 // The private key env var is pasted by hand into Vercel, and the easy
 // mistakes all make OpenSSL reject it ("DECODER routines::unsupported"),
@@ -154,21 +176,29 @@ function normalizePrivateKey(raw: string): string {
   return key.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim() + "\n";
 }
 
-function getAuthClient(): JWT | null {
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKeyRaw = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+function getAuthClient(group: DashboardGroup): JWT | null {
+  const { emailEnv, keyEnv } = DASHBOARD_GROUPS[group];
+  // A group without its own key falls back to the Clippers (default) key,
+  // for setups with only one key — the sheets then need sharing with it.
+  const fallback = DASHBOARD_GROUPS.clippers;
+  const clientEmail = process.env[emailEnv] ?? process.env[fallback.emailEnv];
+  const privateKeyRaw = process.env[keyEnv] ?? process.env[fallback.keyEnv];
   if (!clientEmail || !privateKeyRaw) return null;
-  if (cachedClient) return cachedClient;
-  cachedClient = new JWT({
-    email: clientEmail,
-    key: normalizePrivateKey(privateKeyRaw),
-    scopes: [SHEETS_READONLY_SCOPE],
-  });
-  return cachedClient;
+  let client = cachedClients.get(group);
+  if (!client) {
+    client = new JWT({
+      email: clientEmail,
+      key: normalizePrivateKey(privateKeyRaw),
+      scopes: [SHEETS_READONLY_SCOPE],
+    });
+    cachedClients.set(group, client);
+  }
+  return client;
 }
 
 export interface SheetCampaignSource {
   campaignId: string;
+  group: DashboardGroup;
   spreadsheetId: string;
   sheetName: string;
 }
@@ -176,11 +206,12 @@ export interface SheetCampaignSource {
 export async function fetchSheetCampaignRecords(
   source: SheetCampaignSource,
 ): Promise<RawContentRecord[]> {
-  const client = getAuthClient();
+  const client = getAuthClient(source.group);
   if (!client) {
+    const { emailEnv, keyEnv } = DASHBOARD_GROUPS[source.group];
     console.warn(
       `[google-sheets] Skipping campaign "${source.campaignId}": ` +
-        "GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY not configured.",
+        `${emailEnv} / ${keyEnv} not configured.`,
     );
     return [];
   }
@@ -257,9 +288,13 @@ function normalizeHeader(h: string): string {
 function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawContentRecord[] {
   if (rows.length < 2) return [];
 
+  // First column wins when a header repeats: some tabs have a pivot table
+  // beside the data whose own "Date" header would otherwise replace the
+  // real Date column.
   const idx: Record<string, number> = {};
   rows[0].forEach((h, i) => {
-    idx[normalizeHeader(cellToString(h))] = i;
+    const key = normalizeHeader(cellToString(h));
+    if (!(key in idx)) idx[key] = i;
   });
 
   const resolveIndex = (key: string): number | undefined => {
@@ -296,7 +331,10 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
   const records = dataRows
     .map((row, i) => {
       const rowNo = str(row, "No") || String(i + 1);
-      const platform = PLATFORM_MAP[str(row, "Platform")] ?? str(row, "Platform");
+      const contentUrl = str(row, "Link Post").replace(/\.+$/, "");
+      const platformCell = str(row, "Platform");
+      const platform =
+        PLATFORM_MAP[platformCell] ?? (platformCell || platformFromUrl(contentUrl));
       const product = str(row, "Product");
       const approach = str(row, "Approach");
       const contentType = str(row, "Content Type");
@@ -312,7 +350,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         caption: username ? `@${username} on ${platform}` : `${platform} post`,
         creator: username,
         platform,
-        contentUrl: str(row, "Link Post").replace(/\.+$/, ""),
+        contentUrl,
         publishDate: normalizeDateValue(str(row, "Tanggal")),
         product,
         approach,

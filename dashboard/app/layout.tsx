@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { DASHBOARD_GROUPS, dashboardGroup } from "@/lib/campaigns";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +13,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const groupTitle = DASHBOARD_GROUPS[dashboardGroup()].title;
+
 export const metadata: Metadata = {
-  title: "Content Performance | Samsung FF8 Clippers",
-  description:
-    "Content performance dashboard for the Samsung Galaxy Z Fold8 / Z Flip8 creator seeding campaign.",
+  title: `Content Performance | ${groupTitle}`,
+  description: `Content performance dashboard for ${groupTitle} campaigns.`,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

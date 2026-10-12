@@ -75,7 +75,7 @@ function edit(file, pairs) {
 }
 edit("next.config.ts", [["  /* config options here */", '  output: "export",\n  images: { unoptimized: true },']]);
 edit("app/page.tsx", [["export const revalidate = 300;\n", ""]]);
-edit("app/layout.tsx", [['  title: "Content Performance | Samsung FF8 Clippers",', `  title: ${JSON.stringify(args.name)},`]]);
+edit("app/layout.tsx", [["  title: `Content Performance | ${groupTitle}`,", `  title: ${JSON.stringify(args.name)},`]]);
 edit("components/dashboard/DashboardHeader.tsx", [
   ["          Content Performance", "          Clippers Project Dashboard"],
   ["          Understand how your seeded content is performing.", `          Snapshot as of ${args.date}.`],

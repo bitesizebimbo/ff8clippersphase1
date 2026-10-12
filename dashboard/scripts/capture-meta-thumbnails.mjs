@@ -31,7 +31,7 @@
 // captured so far. Just run it again later to continue.
 //
 // Reading the sheets uses the same service account as the dashboard
-// (GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY, read from
+// (GOOGLE_SHEETS_* for Clippers, OA_GOOGLE_SHEETS_* for OA, read from
 // .env.local if present). Without those, it uses the saved link list in
 // data/meta-post-links.txt instead (one post URL per line — refresh it when
 // new posts are added). Needs Node 22.18+ (imports lib/campaigns.ts).
@@ -89,13 +89,18 @@ async function linksFromSheets() {
   } catch {
     // No .env.local — fall back to whatever is already in the environment.
   }
-  const email = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const key = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  const { DASHBOARD_GROUPS, LIVE_CAMPAIGN_SOURCES, dashboardGroup } = await import("../lib/campaigns.ts");
+  // Same group (Clippers or OA) as the dashboard, read with that group's key.
+  const group = dashboardGroup();
+  const { emailEnv, keyEnv } = DASHBOARD_GROUPS[group];
+  // No key of its own → the Clippers (default) key, as lib/google-sheets.ts.
+  const email = process.env[emailEnv] ?? process.env[DASHBOARD_GROUPS.clippers.emailEnv];
+  const key = process.env[keyEnv] ?? process.env[DASHBOARD_GROUPS.clippers.keyEnv];
   if (!email || !key) {
     const saved = await readFile(SAVED_LINKS_PATH, "utf8").catch(() => null);
     if (saved === null) {
       throw new Error(
-        "GOOGLE_SHEETS_CLIENT_EMAIL / GOOGLE_SHEETS_PRIVATE_KEY not set (add them to .env.local), " +
+        `${emailEnv} / ${keyEnv} not set (add them to .env.local), ` +
           "or pass posts directly with --url.",
       );
     }
@@ -108,10 +113,9 @@ async function linksFromSheets() {
     key: key.replace(/\\n/g, "\n"),
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
-  const { LIVE_CAMPAIGN_SOURCES } = await import("../lib/campaigns.ts");
 
   const links = [];
-  for (const { name, sheet } of LIVE_CAMPAIGN_SOURCES) {
+  for (const { name, sheet } of LIVE_CAMPAIGN_SOURCES.filter((c) => c.group === group)) {
     const range = `'${sheet.sheetName.replace(/'/g, "''")}'`;
     try {
       const res = await client.request({
@@ -176,6 +180,23 @@ async function launchBrowser() {
   }
 }
 
+// The post's own cover image, as Instagram advertises it for link previews
+// (<meta property="og:image">). Used when the video can't be played — e.g.
+// in Playwright's Chromium — since it's always this post's cover, unlike
+// guessing the largest image on the page. Returns false if there isn't one.
+async function saveCoverImage(page, outPath) {
+  const src = await page
+    .locator('meta[property="og:image"]')
+    .first()
+    .getAttribute("content", { timeout: 8000 })
+    .catch(() => null);
+  if (!src) return false;
+  const res = await page.request.get(src);
+  if (!res.ok() || !(res.headers()["content-type"] ?? "").startsWith("image/")) return false;
+  await writeFile(outPath, await res.body());
+  return true;
+}
+
 async function capture(page, shortcode, outPath) {
   let response;
   try {
@@ -190,6 +211,13 @@ async function capture(page, shortcode, outPath) {
   }
   if (response?.status() === 429 || page.url().includes("/accounts/login")) {
     throw new RateLimitedError("Instagram is asking to log in / rate-limiting");
+  }
+  // Without Chrome the video won't play, so use the cover — and never fall
+  // back to guessing the largest image on the page, which can pick up an
+  // unrelated post (a suggested reel) instead of this one.
+  if (usingBundledChromium) {
+    if (await saveCoverImage(page, outPath)) return;
+    throw new Error("no cover image on the page (the post may be deleted or private)");
   }
   // The login modal tends to appear a moment after load, not immediately.
   await page.waitForTimeout(3000);
@@ -238,6 +266,7 @@ async function capture(page, shortcode, outPath) {
       return el.readyState >= 2;
     });
     // Never save a black "can't play this video" frame as a thumbnail.
+    if (!playable && (await saveCoverImage(page, outPath))) return;
     if (!playable) {
       throw new Error(
         "the video couldn't play" +

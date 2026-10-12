@@ -320,3 +320,31 @@ in `lib/analytics.ts` need no changes either way.
 - Filter/sort/search/chart state is stored in the URL (`?platform=TikTok&range=last7&sort=views-desc&...`), so any filtered view is a shareable link.
 - The dashboard is read-only in v1 (per the brief's assumptions) — there is no write path.
 - v1 architecture assumes TikTok/YouTube as the platforms in play, but nothing is hardcoded to a fixed platform list beyond the `PlatformBadge` style map, which falls back to a neutral badge for any unrecognized platform string.
+
+## Clippers and OA dashboards
+
+Clippers and OA are two separate dashboards built from this one codebase:
+two Vercel projects pointing at this same repo (root directory
+`dashboard/`), each showing only its own campaigns. Every campaign in
+`LIVE_CAMPAIGN_SOURCES` (`lib/campaigns.ts`) has a `group: "clippers" | "oa"`,
+and each deployment picks its group with an env var.
+
+Each group reads its sheets with its own service account, whose key lives
+under its own env var names, so both keys can sit side by side in one place
+(`.env.local`, a Claude Code cloud environment, Vercel) without retyping:
+
+| Group | Service account | Env vars |
+|---|---|---|
+| Clippers | `sheet-reader-clippers@clippers-project-508303.iam.gserviceaccount.com` | `GOOGLE_SHEETS_CLIENT_EMAIL`, `GOOGLE_SHEETS_PRIVATE_KEY` |
+| OA | `oa-dashboard-reader@oa-dashboard-509912.iam.gserviceaccount.com` | `OA_GOOGLE_SHEETS_CLIENT_EMAIL`, `OA_GOOGLE_SHEETS_PRIVATE_KEY` |
+
+If the `OA_` vars aren't set, OA falls back to the Clippers key — which
+works as long as the OA sheets are also shared (Viewer) with the Clippers
+service account.
+
+Which dashboard you get is only `DASHBOARD_GROUP` (`clippers`, the default,
+or `oa`). To set up the OA project: in Vercel, **Add New → Project**,
+import this repo, set the root directory to `dashboard`, add
+`DASHBOARD_GROUP=oa` plus the two `OA_` vars, deploy. To add a
+campaign to either dashboard, add its entry with the right `group` and
+redeploy both (a campaign in the other group is simply ignored).
