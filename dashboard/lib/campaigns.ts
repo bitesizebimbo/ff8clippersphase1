@@ -106,6 +106,17 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
       sheetName: "PERFORMANCE RNPL & LAUNCH ONGOING",
     },
   },
+  {
+    id: "a08-a18",
+    group: "clippers",
+    name: "Galaxy A08 A18",
+    shortLabel: "A08 A18",
+    productLabel: "Samsung Galaxy A08 / A18",
+    sheet: {
+      spreadsheetId: "1ua5jgK_k-MdL4uvqUvZ91wIAvx_tTThe2mgELwZl-N0",
+      sheetName: "Performance",
+    },
+  },
 ];
 
 export function findCampaignMeta(

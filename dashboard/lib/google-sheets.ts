@@ -288,9 +288,13 @@ function normalizeHeader(h: string): string {
 function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawContentRecord[] {
   if (rows.length < 2) return [];
 
+  // First column wins when a header repeats: some tabs have a pivot table
+  // beside the data whose own "Date" header would otherwise replace the
+  // real Date column.
   const idx: Record<string, number> = {};
   rows[0].forEach((h, i) => {
-    idx[normalizeHeader(cellToString(h))] = i;
+    const key = normalizeHeader(cellToString(h));
+    if (!(key in idx)) idx[key] = i;
   });
 
   const resolveIndex = (key: string): number | undefined => {
