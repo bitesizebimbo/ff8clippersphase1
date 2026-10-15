@@ -16,6 +16,9 @@ const SHEETS_READONLY_SCOPE = "https://www.googleapis.com/auth/spreadsheets.read
 const PLATFORM_MAP: Record<string, string> = {
   Tiktok: "TikTok",
   Youtube: "YouTube",
+  "Youtube Short": "YouTube",
+  "Youtube Shorts": "YouTube",
+  "YouTube Shorts": "YouTube",
 };
 
 // A blank Platform cell is filled in from the post link's domain.

@@ -117,6 +117,17 @@ export const LIVE_CAMPAIGN_SOURCES: LiveCampaignSource[] = [
       sheetName: "Performance",
     },
   },
+  {
+    id: "s26-ultra",
+    group: "clippers",
+    name: "Galaxy S26 Ultra",
+    shortLabel: "S26 Ultra",
+    productLabel: "Samsung Galaxy S26 Ultra",
+    sheet: {
+      spreadsheetId: "1o9PPQ8QmIHoJkCYtJRnNFqA3Ba0OJWUt1uMr_2CE3uo",
+      sheetName: "Performance",
+    },
+  },
 ];
 
 export function findCampaignMeta(
