@@ -127,6 +127,13 @@ async function imageBytes(platform, url) {
     const file = manifest[`ig:${u.pathname.match(IG)?.[1]}`];
     return file ? readFileSync(path.join(ROOT, "public", file)) : null;
   }
+  // TikTok covers captured by scripts/capture-tiktok-thumbnails.mjs (keys as
+  // in lib/thumbnails.ts tiktokKey()); TikTok's oEmbed no longer has them.
+  if (/(^|\.)tiktok\.com$/.test(u.hostname)) {
+    const videoId = u.pathname.match(/\/(?:video|photo)\/(\d+)/)?.[1];
+    const file = manifest[`tt:${videoId ?? u.hostname + u.pathname.replace(/\/+$/, "")}`];
+    if (file) return readFileSync(path.join(ROOT, "public", file));
+  }
   let imageUrl = null;
   if (platform === "YouTube") {
     const id = u.hostname === "youtu.be" ? u.pathname.slice(1).split("/")[0]

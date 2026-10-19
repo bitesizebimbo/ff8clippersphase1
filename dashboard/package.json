@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "capture:meta-thumbnails": "node scripts/capture-meta-thumbnails.mjs",
-    "export:html": "NODE_USE_ENV_PROXY=1 node scripts/export-html.mjs"
+    "export:html": "NODE_USE_ENV_PROXY=1 node scripts/export-html.mjs",
+    "capture:tiktok-thumbnails": "NODE_USE_ENV_PROXY=1 node scripts/capture-tiktok-thumbnails.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
