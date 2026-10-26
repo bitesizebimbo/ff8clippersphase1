@@ -28,6 +28,15 @@ const PLATFORM_BY_HOST: [RegExp, string][] = [
   [/(^|\.)instagram\.com$/, "Instagram"],
 ];
 
+// TikTok's newer share links (www.tt.site/t/<code>) carry the same code as
+// its vt.tiktok.com short links, but TikTok's oEmbed only accepts the
+// latter. Rewrite them so thumbnails, platform detection and the link all
+// work the same as any other TikTok post.
+function normalizeLink(url: string): string {
+  const m = url.match(/^https?:\/\/(?:www\.)?tt\.site\/t\/([\w-]+)/i);
+  return m ? `https://vt.tiktok.com/${m[1]}/` : url;
+}
+
 function platformFromUrl(url: string): string {
   let host: string;
   try {
@@ -334,7 +343,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
   const records = dataRows
     .map((row, i) => {
       const rowNo = str(row, "No") || String(i + 1);
-      const contentUrl = str(row, "Link Post").replace(/\.+$/, "");
+      const contentUrl = normalizeLink(str(row, "Link Post").replace(/\.+$/, ""));
       const platformCell = str(row, "Platform");
       const platform =
         PLATFORM_MAP[platformCell] ?? (platformCell || platformFromUrl(contentUrl));

@@ -80,6 +80,8 @@ async function tiktokLinksFromSheets() {
       if (linkCol === -1) continue;
       const found = rows
         .map((row) => String(row[linkCol] ?? "").trim().replace(/\.+$/, ""))
+        // Same rewrite as normalizeLink() in lib/google-sheets.ts.
+        .map((l) => l.replace(/^https?:\/\/(?:www\.)?tt\.site\/t\/([\w-]+).*$/i, "https://vt.tiktok.com/$1/"))
         .filter((l) => tiktokKey(l));
       console.log(`  ${name}: ${found.length} TikTok links`);
       links.push(...found);
