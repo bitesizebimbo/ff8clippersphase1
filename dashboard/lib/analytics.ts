@@ -146,7 +146,21 @@ export function aggregateByWeek(
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, { week, start, recs }]) => ({ ...bucketToPoint(start, `WK${week}`, recs), weekNumber: week }));
+    .map(([, { week, start, recs }]) => ({ ...bucketToPoint(start, formatWeekLabel(week), recs), weekNumber: week }));
+}
+
+/** How a reporting week is labelled everywhere in the dashboard (e.g. "WK41"). */
+export function formatWeekLabel(week: number): string {
+  return `WK${week}`;
+}
+
+/**
+ * The reporting week a post counts toward: the sheet's own Week column when
+ * it has one, else the ISO week of its publish date — the same rule the
+ * weekly chart uses, so a week filter and the chart always agree.
+ */
+export function contentWeek(item: Pick<ContentItem, "week" | "publishDate">): number {
+  return item.week ?? getIsoWeekNumber(item.publishDate);
 }
 
 function bucketToPoint(

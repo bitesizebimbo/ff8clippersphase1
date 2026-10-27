@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { contentWeek, formatWeekLabel } from "@/lib/analytics";
 import type { ContentItem, SortOption, ViewMode } from "@/lib/types";
 import { ContentCard } from "./ContentCard";
 import { ContentTable } from "./ContentTable";
@@ -37,7 +38,28 @@ export function ContentLibrary({
   onSelect: (id: string) => void;
   onClearFilters: () => void;
 }) {
-  const resetKey = `${viewMode}:${items.length}:${items[0]?.id ?? ""}:${sortBy}`;
+  // Week filter for the library only (KPIs and charts keep following the
+  // filter bar). Weeks are the sheets' own reporting weeks, labelled like
+  // the weekly chart ("WK41"), newest first. A week that no longer exists
+  // in the current selection (e.g. after switching campaign) falls back to
+  // "All weeks".
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const weekOptions = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const item of items) {
+      const w = contentWeek(item);
+      counts.set(w, (counts.get(w) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort(([a], [b]) => b - a);
+  }, [items]);
+  const activeWeek =
+    selectedWeek !== null && weekOptions.some(([w]) => w === selectedWeek) ? selectedWeek : null;
+  const shownItems = useMemo(
+    () => (activeWeek === null ? items : items.filter((item) => contentWeek(item) === activeWeek)),
+    [items, activeWeek],
+  );
+
+  const resetKey = `${viewMode}:${shownItems.length}:${shownItems[0]?.id ?? ""}:${sortBy}`;
   const [visible, setVisible] = useState(PAGE_SIZE[viewMode]);
   const [lastResetKey, setLastResetKey] = useState(resetKey);
 
@@ -49,8 +71,8 @@ export function ContentLibrary({
     setVisible(PAGE_SIZE[viewMode]);
   }
 
-  const visibleItems = items.slice(0, visible);
-  const hasMore = visible < items.length;
+  const visibleItems = shownItems.slice(0, visible);
+  const hasMore = visible < shownItems.length;
 
   return (
     <section className="flex flex-col gap-4">
@@ -60,12 +82,25 @@ export function ContentLibrary({
             Content Library
           </h2>
           <p className="text-sm text-foreground-muted">
-            {items.length === totalUnfiltered
-              ? `${items.length} pieces of content`
-              : `${items.length} of ${totalUnfiltered} pieces of content`}
+            {shownItems.length === totalUnfiltered
+              ? `${shownItems.length} pieces of content`
+              : `${shownItems.length} of ${totalUnfiltered} pieces of content`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={activeWeek ?? ""}
+            onChange={(e) => setSelectedWeek(e.target.value === "" ? null : Number(e.target.value))}
+            aria-label="Filter by week"
+            className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
+          >
+            <option value="">All weeks</option>
+            {weekOptions.map(([week, count]) => (
+              <option key={week} value={week}>
+                {formatWeekLabel(week)} ({count})
+              </option>
+            ))}
+          </select>
           <select
             value={sortBy}
             onChange={(e) => onSortChange(e.target.value as SortOption)}
@@ -103,7 +138,7 @@ export function ContentLibrary({
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {shownItems.length === 0 ? (
         <EmptyState
           title="No content matches these filters."
           description="Try changing your date range or removing one of the filters."
@@ -125,7 +160,7 @@ export function ContentLibrary({
           onClick={() => setVisible((v) => v + PAGE_SIZE[viewMode])}
           className="mx-auto"
         >
-          Load more ({items.length - visible} remaining)
+          Load more ({shownItems.length - visible} remaining)
         </Button>
       )}
     </section>
