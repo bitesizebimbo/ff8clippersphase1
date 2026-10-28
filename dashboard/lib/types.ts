@@ -100,6 +100,8 @@ export interface TimelinePoint {
   label: string;
   /** Weekly granularity only: the week number the bucket represents. */
   weekNumber?: number;
+  /** Number of posts uploaded in the bucket. */
+  contentCount: number;
   views: number;
   totalEngagements: number;
   engagementRate: number;
