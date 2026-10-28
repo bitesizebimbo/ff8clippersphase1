@@ -13,7 +13,7 @@
 // Campaigns whose sheet can't be read are left out, and the run says so.
 //
 // How it works: the app is copied to a temp folder and patched for offline
-// use (static export, URL state via the history API, thumbnails looked up
+// use (static export, view state kept in memory, thumbnails looked up
 // from an embedded map, a snapshot title), built with `next build`, then
 // every script, stylesheet and font is inlined into index.html.
 
@@ -80,10 +80,36 @@ edit("components/dashboard/DashboardHeader.tsx", [
   ["          Content Performance", "          Clippers Project Dashboard"],
   ["          Understand how your seeded content is performing.", `          Snapshot as of ${args.date}.`],
 ]);
-edit("lib/use-dashboard-state.ts", [[
-  "      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });",
-  '      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);',
-]]);
+// The snapshot keeps its view state (mode, filters, sort…) in memory rather
+// than the URL. Opened from a messaging app the file has a content:// URL,
+// and any change to its query string makes the browser try to load a page
+// that doesn't exist ("This page couldn't load"), e.g. on tapping "All
+// Campaigns" in a file opened from WhatsApp on Android.
+edit("lib/use-dashboard-state.ts", [
+  ['import { useCallback, useMemo } from "react";', `import { useCallback, useMemo, useSyncExternalStore } from "react";
+
+let snapshotParams = new URLSearchParams();
+const snapshotListeners = new Set<() => void>();
+function setSnapshotParams(qs: string) {
+  snapshotParams = new URLSearchParams(qs);
+  snapshotListeners.forEach((listener) => listener());
+}
+function useSnapshotParams() {
+  return useSyncExternalStore(
+    (listener) => {
+      snapshotListeners.add(listener);
+      return () => snapshotListeners.delete(listener);
+    },
+    () => snapshotParams,
+    () => snapshotParams,
+  );
+}`],
+  ["  const searchParams = useSearchParams();", "  const searchParams = useSnapshotParams();"],
+  [
+    "      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });",
+    "      setSnapshotParams(qs);",
+  ],
+]);
 {
   const p = path.join(work, "components/dashboard/ContentThumbnail.tsx");
   let s = readFileSync(p, "utf8");

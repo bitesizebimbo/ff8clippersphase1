@@ -9,6 +9,7 @@ import type {
   DatePreset,
   DateRange,
 } from "./types";
+import { contentWeek } from "./analytics";
 
 export interface DatasetBounds {
   minDate: string;
@@ -142,6 +143,7 @@ export function filterContent(
       return false;
     if (filters.hookTheme.length && !filters.hookTheme.includes(item.hookTheme))
       return false;
+    if (filters.week.length && !filters.week.includes(contentWeek(item))) return false;
     if (search) {
       const haystack = `${item.title} ${item.caption} ${item.product} ${item.creator} ${item.id}`.toLowerCase();
       if (!haystack.includes(search)) return false;
