@@ -139,6 +139,8 @@ export interface DashboardFilters {
   cxp: string[];
   commsFocus: string[];
   hookTheme: string[];
+  /** Reporting weeks (see contentWeek() in analytics.ts); empty = all weeks. */
+  week: number[];
   search: string;
 }
 

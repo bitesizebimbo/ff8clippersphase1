@@ -9,6 +9,7 @@ import {
   aggregateByClassification,
   buildSummary,
   buildTimeline,
+  contentWeek,
   toDailyRecords,
 } from "./analytics";
 import {
@@ -56,6 +57,8 @@ export interface FilterOptions {
   approach: string[];
   contentType: string[];
   platform: string[];
+  /** Reporting weeks present, newest first. */
+  week: number[];
 }
 
 export function getFilterOptions(
@@ -68,6 +71,7 @@ export function getFilterOptions(
     approach: uniqueSorted(scoped.map((c) => c.approach)),
     contentType: uniqueSorted(scoped.map((c) => c.contentType)),
     platform: uniqueSorted(scoped.map((c) => c.platform)),
+    week: [...new Set(scoped.map(contentWeek))].sort((a, b) => b - a),
   };
 }
 
@@ -110,7 +114,10 @@ export function getDashboardSummary(
   const current = filterContent(content, filters);
 
   const bounds = getDateBounds(content, filters.campaign);
-  const previousRange = resolvePreviousPeriod(filters.dateRange, bounds);
+  // A week filter has no meaningful "previous period" (the same weeks can't
+  // fall in an earlier date range), so no deltas while one is active.
+  const previousRange =
+    filters.week.length > 0 ? null : resolvePreviousPeriod(filters.dateRange, bounds);
   const previous = previousRange
     ? filterContent(content, { ...filters, dateRange: previousRange })
     : null;

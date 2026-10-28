@@ -102,6 +102,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
       cxp: parseList(searchParams.get("cxp")),
       commsFocus: parseList(searchParams.get("promo")),
       hookTheme: parseList(searchParams.get("hooktheme")),
+      week: parseList(searchParams.get("week")).map(Number).filter(Number.isFinite),
       search: searchParams.get("q") ?? "",
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,6 +143,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     filters.cxp.length > 0 ||
     filters.commsFocus.length > 0 ||
     filters.hookTheme.length > 0 ||
+    filters.week.length > 0 ||
     filters.search.length > 0 ||
     presetParam !== "all" ||
     (mode === "all" && allModeCampaigns.length > 0);
@@ -177,6 +179,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     setApproachFilter: (values: string[]) => setParams({ approach: values.join(",") || null }),
     setContentTypeFilter: (values: string[]) => setParams({ type: values.join(",") || null }),
     setPlatformFilter: (values: string[]) => setParams({ platform: values.join(",") || null }),
+    setWeekFilter: (weeks: number[]) => setParams({ week: weeks.join(",") || null }),
     setSearch: (q: string) => setParams({ q: q || null }),
     setSortBy: (sort: SortOption) => setParams({ sort }),
     setChartGranularity: (g: ChartGranularity) => setParams({ granularity: g }),
@@ -207,6 +210,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
         cxp: null,
         promo: null,
         hooktheme: null,
+        week: null,
         q: null,
         range: null,
         start: null,

@@ -3,6 +3,7 @@
 import { Search, X } from "lucide-react";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Button } from "@/components/ui/button";
+import { formatWeekLabel } from "@/lib/analytics";
 import type { CampaignMeta } from "@/lib/campaigns";
 import type { FilterOptions } from "@/lib/data";
 import type { DashboardFilters } from "@/lib/types";
@@ -18,6 +19,7 @@ export function FilterBar({
   onApproachChange,
   onContentTypeChange,
   onPlatformChange,
+  onWeekChange,
   onSearchChange,
   onClear,
 }: {
@@ -31,6 +33,7 @@ export function FilterBar({
   onApproachChange: (v: string[]) => void;
   onContentTypeChange: (v: string[]) => void;
   onPlatformChange: (v: string[]) => void;
+  onWeekChange: (weeks: number[]) => void;
   onSearchChange: (v: string) => void;
   onClear: () => void;
 }) {
@@ -74,6 +77,13 @@ export function FilterBar({
           options={options.platform}
           selected={filters.platform}
           onChange={onPlatformChange}
+        />
+        {/* Reporting weeks, labelled like the weekly chart ("WK41"). */}
+        <MultiSelect
+          label="Week"
+          options={options.week.map(formatWeekLabel)}
+          selected={filters.week.map(formatWeekLabel)}
+          onChange={(labels) => onWeekChange(labels.map((l) => Number(l.replace(/\D/g, ""))))}
         />
         {hasActiveFilters && (
           <Button variant="ghost" size="sm" onClick={onClear} className="col-span-2 mb-0.5 shrink-0 justify-self-start">

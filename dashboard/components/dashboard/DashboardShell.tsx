@@ -140,6 +140,7 @@ export function DashboardShell({
             onApproachChange={state.setApproachFilter}
             onContentTypeChange={state.setContentTypeFilter}
             onPlatformChange={state.setPlatformFilter}
+            onWeekChange={state.setWeekFilter}
             onSearchChange={state.setSearch}
             onClear={state.clearFilters}
           />
