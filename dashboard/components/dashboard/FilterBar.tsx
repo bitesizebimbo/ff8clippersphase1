@@ -39,7 +39,8 @@ export function FilterBar({
 
   return (
     <div className="flex flex-col gap-3 rounded-[var(--radius-lg)] border border-border bg-surface p-3 sm:flex-row sm:items-end sm:justify-between">
-      <div className="scrollbar-thin flex items-end gap-3 overflow-x-auto pb-1 sm:pb-0">
+      {/* Phones: a 2-column grid so every filter is visible. Wider: one row. */}
+      <div className="grid grid-cols-2 items-end gap-3 scrollbar-thin sm:flex sm:overflow-x-auto">
         {showCampaignFilter && (
           <MultiSelect
             label="Campaign"
@@ -75,7 +76,7 @@ export function FilterBar({
           onChange={onPlatformChange}
         />
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={onClear} className="mb-0.5 shrink-0">
+          <Button variant="ghost" size="sm" onClick={onClear} className="col-span-2 mb-0.5 shrink-0 justify-self-start">
             <X className="h-3.5 w-3.5" aria-hidden />
             Clear filters
           </Button>

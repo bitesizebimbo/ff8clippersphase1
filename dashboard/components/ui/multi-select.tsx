@@ -34,7 +34,7 @@ export function MultiSelect({
       : `${selected.length} selected`;
 
   return (
-    <div className="flex shrink-0 flex-col gap-1">
+    <div className="flex min-w-0 shrink-0 flex-col gap-1">
       <span className="whitespace-nowrap text-xs font-medium text-foreground-subtle">{label}</span>
       <Popover>
         <PopoverTrigger asChild>

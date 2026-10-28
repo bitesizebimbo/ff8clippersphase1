@@ -3,7 +3,11 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
 
-export const Tabs = TabsPrimitive.Root;
+// min-w-0/max-w-full let a TabsList inside a flex row shrink to the screen
+// and scroll on its own, instead of widening the whole page on phones.
+export function Tabs({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Root>) {
+  return <TabsPrimitive.Root className={cn("min-w-0 max-w-full", className)} {...props} />;
+}
 
 export function TabsList({
   className,
