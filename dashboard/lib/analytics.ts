@@ -175,6 +175,7 @@ function bucketToPoint(
   return {
     bucketStart,
     label,
+    contentCount: new Set(recs.map((r) => r.contentId)).size,
     views: totals.views,
     totalEngagements,
     engagementRate: calculateEngagementRate(totalEngagements, totals.views),

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatWeekLabel } from "@/lib/analytics";
 import type { ContentItem, SortOption, ViewMode } from "@/lib/types";
 import { ContentCard } from "./ContentCard";
 import { ContentTable } from "./ContentTable";
@@ -27,6 +28,9 @@ export function ContentLibrary({
   onViewModeChange,
   onSelect,
   onClearFilters,
+  weekOptions,
+  selectedWeeks,
+  onWeekChange,
 }: {
   items: ContentItem[];
   totalUnfiltered: number;
@@ -36,6 +40,10 @@ export function ContentLibrary({
   onViewModeChange: (v: ViewMode) => void;
   onSelect: (id: string) => void;
   onClearFilters: () => void;
+  /** Same week filter as the filter bar, so it filters the whole dashboard. */
+  weekOptions: number[];
+  selectedWeeks: number[];
+  onWeekChange: (weeks: number[]) => void;
 }) {
   const resetKey = `${viewMode}:${items.length}:${items[0]?.id ?? ""}:${sortBy}`;
   const [visible, setVisible] = useState(PAGE_SIZE[viewMode]);
@@ -66,6 +74,24 @@ export function ContentLibrary({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedWeeks.length > 1 ? "multiple" : String(selectedWeeks[0] ?? "")}
+            onChange={(e) => onWeekChange(e.target.value ? [Number(e.target.value)] : [])}
+            aria-label="Filter by week"
+            className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
+          >
+            <option value="">All weeks</option>
+            {selectedWeeks.length > 1 && (
+              <option value="multiple" disabled>
+                {selectedWeeks.length} weeks
+              </option>
+            )}
+            {weekOptions.map((week) => (
+              <option key={week} value={week}>
+                {formatWeekLabel(week)}
+              </option>
+            ))}
+          </select>
           <select
             value={sortBy}
             onChange={(e) => onSortChange(e.target.value as SortOption)}

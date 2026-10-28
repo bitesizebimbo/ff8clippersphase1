@@ -178,6 +178,9 @@ export function DashboardShell({
             onViewModeChange={state.setViewMode}
             onSelect={state.setSelectedContentId}
             onClearFilters={state.clearFilters}
+            weekOptions={filterOptions.week}
+            selectedWeeks={state.filters.week}
+            onWeekChange={state.setWeekFilter}
           />
 
           <ContentDetailDrawer

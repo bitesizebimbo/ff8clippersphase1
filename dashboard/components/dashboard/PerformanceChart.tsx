@@ -169,6 +169,7 @@ function ChartTooltip({
         {granularity === "weekly" ? point.label : point.label}
       </p>
       <dl className="space-y-1">
+        <Row label="Content Uploaded" value={formatExactNumber(point.contentCount)} />
         <Row label="Views" value={formatExactNumber(point.views)} />
         <Row label="Engagements" value={formatExactNumber(point.totalEngagements)} />
         <Row label="Engagement Rate" value={formatPercent(point.engagementRate)} />
