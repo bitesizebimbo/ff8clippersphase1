@@ -141,6 +141,7 @@ export function filterContent(
     if (filters.cxp.length && !filters.cxp.includes(item.cxp)) return false;
     if (filters.commsFocus.length && !filters.commsFocus.includes(item.commsFocus))
       return false;
+    if (filters.promo.length && !filters.promo.includes(item.promo)) return false;
     if (filters.hookTheme.length && !filters.hookTheme.includes(item.hookTheme))
       return false;
     if (filters.week.length && !filters.week.includes(contentWeek(item))) return false;

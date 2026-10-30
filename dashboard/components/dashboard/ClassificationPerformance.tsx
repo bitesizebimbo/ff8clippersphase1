@@ -31,8 +31,8 @@ const BASE_DIMENSIONS: { id: ClassificationDimension; label: string }[] = [
   { id: "contentType", label: "Content Type" },
   { id: "platform", label: "Platform" },
   { id: "cxp", label: "CXP" },
-  // The sheet's own column is "Comms Focus" — labeled "Promo" here per request.
-  { id: "commsFocus", label: "Promo" },
+  { id: "commsFocus", label: "Comms Focus" },
+  { id: "promo", label: "Promo" },
   { id: "hookTheme", label: "Hook Theme" },
 ];
 const CAMPAIGN_DIMENSION = { id: "campaign" as ClassificationDimension, label: "Campaign" };

@@ -22,8 +22,10 @@ export interface RawContentRecord {
   contentType: string;
   /** Distinct from `product` — the sheet's own "CXP" column (a feature/theme, e.g. "Horizontal Lock"). */
   cxp: string;
-  /** The sheet's "Comms Focus" column; labeled "Promo" in the UI. */
+  /** The sheet's "Comms Focus" column (e.g. "Launch Promo"). */
   commsFocus: string;
+  /** The sheet's "Promo" column (e.g. "CTA Generic", "GUF - ERA"). */
+  promo: string;
   /** Distinct from `contentType` — the sheet's own "Hook Theme" column (e.g. "Proud to Own"). */
   hookTheme: string;
   /**
@@ -75,6 +77,7 @@ export type ClassificationDimension =
   | "campaign"
   | "cxp"
   | "commsFocus"
+  | "promo"
   | "hookTheme";
 
 /** Which number ranks the breakdown: the bucket's total views, or its views averaged per piece of content. */
@@ -140,6 +143,7 @@ export interface DashboardFilters {
   platform: string[];
   cxp: string[];
   commsFocus: string[];
+  promo: string[];
   hookTheme: string[];
   /** Reporting weeks (see contentWeek() in analytics.ts); empty = all weeks. */
   week: number[];

@@ -80,7 +80,8 @@ export function ContentDetailDrawer({
                   value={<PlatformBadge platform={item.platform} />}
                 />
                 {item.cxp && <ClassRow label="CXP" value={item.cxp} />}
-                {item.commsFocus && <ClassRow label="Promo" value={item.commsFocus} />}
+                {item.commsFocus && <ClassRow label="Comms Focus" value={item.commsFocus} />}
+                {item.promo && <ClassRow label="Promo" value={item.promo} />}
                 {item.hookTheme && <ClassRow label="Hook Theme" value={item.hookTheme} />}
                 <ClassRow label="Published" value={formatDate(item.publishDate)} />
               </dl>

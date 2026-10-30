@@ -282,6 +282,7 @@ const DIMENSION_KEY: Record<ClassificationDimension, keyof ContentItem> = {
   campaign: "campaignId",
   cxp: "cxp",
   commsFocus: "commsFocus",
+  promo: "promo",
   hookTheme: "hookTheme",
 };
 

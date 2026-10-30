@@ -147,6 +147,7 @@ type ArrayFilterKey =
   | "platform"
   | "cxp"
   | "commsFocus"
+  | "promo"
   | "hookTheme";
 
 // Maps a classification dimension to the DashboardFilters field a drill-down
@@ -159,6 +160,7 @@ export const DIMENSION_FILTER_KEY: Partial<Record<ClassificationDimension, Array
   platform: "platform",
   cxp: "cxp",
   commsFocus: "commsFocus",
+  promo: "promo",
   hookTheme: "hookTheme",
 };
 

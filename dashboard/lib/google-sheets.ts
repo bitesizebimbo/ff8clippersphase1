@@ -65,7 +65,7 @@ const EXPECTED_COLUMNS = [
   "Platform",
 ];
 
-// "Username", "Approach", "CXP", "Comms Focus", and "Hook Theme" are read
+// "Username", "Approach", "CXP", "Comms Focus", "Promo" and "Hook Theme" are read
 // when present (str() below already defaults to "" for any column that
 // isn't found) but aren't in EXPECTED_COLUMNS — several campaigns' sheets
 // simply don't track these, and that's not worth warning about.
@@ -75,9 +75,6 @@ const EXPECTED_COLUMNS = [
 const COLUMN_ALIASES: Record<string, string[]> = {
   No: ["Content ID"],
   Tanggal: ["Date"],
-  // FF8 Phase 1's sheet has no "Comms Focus" column; its "Promo" column
-  // holds the same thing. Sheets with both keep reading "Comms Focus".
-  "Comms Focus": ["Promo"],
 };
 
 // Keyed by a month name's first three letters. English plus the Indonesian
@@ -352,6 +349,8 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
       const contentType = str(row, "Content Type");
       const cxp = str(row, "CXP");
       const commsFocus = str(row, "Comms Focus");
+      // Some tags carry an invisible leading character ("\u2060GUF - MHI").
+      const promo = str(row, "Promo").replace(/^[\u2060\u200B\uFEFF]+/, "");
       const hookTheme = str(row, "Hook Theme");
       const username = str(row, "Username");
 
@@ -369,6 +368,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         contentType,
         cxp,
         commsFocus,
+        promo,
         hookTheme,
         week: parseWeekNumber(str(row, "Week")),
         views: num(row, "Views"),
