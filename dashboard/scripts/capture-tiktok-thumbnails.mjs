@@ -112,7 +112,7 @@ async function main() {
   if (todo.length === 0) return;
 
   await mkdir(THUMBNAIL_DIR, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
   const context = await browser.newContext({ locale: "en-US" });
   let saved = 0;
   const failed = [];
