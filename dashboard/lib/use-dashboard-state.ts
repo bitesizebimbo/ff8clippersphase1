@@ -28,7 +28,8 @@ const DIMENSION_PARAM: Partial<Record<ClassificationDimension, string>> = {
   contentType: "type",
   platform: "platform",
   cxp: "cxp",
-  commsFocus: "promo",
+  commsFocus: "comms",
+  promo: "promo",
   hookTheme: "hooktheme",
 };
 
@@ -100,7 +101,8 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
       contentType: parseList(searchParams.get("type")),
       platform: parseList(searchParams.get("platform")),
       cxp: parseList(searchParams.get("cxp")),
-      commsFocus: parseList(searchParams.get("promo")),
+      commsFocus: parseList(searchParams.get("comms")),
+      promo: parseList(searchParams.get("promo")),
       hookTheme: parseList(searchParams.get("hooktheme")),
       week: parseList(searchParams.get("week")).map(Number).filter(Number.isFinite),
       search: searchParams.get("q") ?? "",
@@ -142,6 +144,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
     filters.platform.length > 0 ||
     filters.cxp.length > 0 ||
     filters.commsFocus.length > 0 ||
+    filters.promo.length > 0 ||
     filters.hookTheme.length > 0 ||
     filters.week.length > 0 ||
     filters.search.length > 0 ||
@@ -208,6 +211,7 @@ export function useDashboardState(content: ContentItem[], campaigns: CampaignMet
         type: null,
         platform: null,
         cxp: null,
+        comms: null,
         promo: null,
         hooktheme: null,
         week: null,
