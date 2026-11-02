@@ -8,11 +8,11 @@ import { loadAllContent } from "@/lib/load-content";
 export const revalidate = 300;
 
 export default async function Home() {
-  const { content, campaigns } = await loadAllContent();
+  const { content, campaigns, journeyTargets } = await loadAllContent();
 
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardShell content={content} campaigns={campaigns} />
+      <DashboardShell content={content} campaigns={campaigns} journeyTargets={journeyTargets} />
     </Suspense>
   );
 }

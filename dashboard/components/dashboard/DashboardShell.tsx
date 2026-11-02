@@ -13,6 +13,7 @@ import {
   sortContent,
 } from "@/lib/data";
 import { findCampaignMeta, type CampaignMeta } from "@/lib/campaigns";
+import { JOURNEY_PRODUCTS, type JourneyTargets } from "@/lib/consumer-journey";
 import type { ContentItem } from "@/lib/types";
 import { DashboardHeader } from "./DashboardHeader";
 import { DateRangePicker } from "./DateRangePicker";
@@ -24,16 +25,25 @@ import { ClassificationPerformance } from "./ClassificationPerformance";
 import { ContentLibrary } from "./ContentLibrary";
 import { ContentDetailDrawer } from "./ContentDetailDrawer";
 import { CompareView } from "./CompareView";
+import { ConsumerJourney } from "./ConsumerJourney";
 
 export function DashboardShell({
   content,
   campaigns,
+  journeyTargets,
 }: {
   content: ContentItem[];
   campaigns: CampaignMeta[];
+  journeyTargets: JourneyTargets;
 }) {
   const state = useDashboardState(content, campaigns);
   const isAllMode = state.mode === "all";
+  // The consumer journey section shows in All Campaigns, and in Single mode
+  // for a campaign that carries a journey product (preselected there).
+  const journeyProductIds = isAllMode
+    ? []
+    : JOURNEY_PRODUCTS.filter((p) => p.campaignId === state.activeCampaignId).map((p) => p.id);
+  const showJourney = isAllMode || journeyProductIds.length > 0;
   const campaignScope = useMemo(
     () => (isAllMode ? undefined : [state.activeCampaignId]),
     [isAllMode, state.activeCampaignId],
@@ -168,6 +178,15 @@ export function DashboardShell({
             onMetricChange={state.setClassificationMetric}
             onSelectValue={state.toggleClassificationFilter}
           />
+
+          {showJourney && (
+            <ConsumerJourney
+              key={journeyProductIds.join(",")}
+              content={content}
+              targets={journeyTargets}
+              defaultProductIds={journeyProductIds}
+            />
+          )}
 
           <ContentLibrary
             items={sortedContent}

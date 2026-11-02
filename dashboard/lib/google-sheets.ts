@@ -2,6 +2,12 @@ import "server-only";
 
 import { JWT } from "google-auth-library";
 import { DASHBOARD_GROUPS, type DashboardGroup } from "./campaigns";
+import {
+  JOURNEY_PRODUCTS,
+  journeyStage,
+  type JourneyTargetRow,
+  type JourneyTargets,
+} from "./consumer-journey";
 import type { RawContentRecord } from "./types";
 
 // Fetches one campaign's rows from a Google Sheet, using a service account
@@ -65,7 +71,7 @@ const EXPECTED_COLUMNS = [
   "Platform",
 ];
 
-// "Username", "Approach", "CXP", "Comms Focus", "Promo" and "Hook Theme" are read
+// "Username", "Approach", "CXP", "Comms Focus", "Promo", "Consumer Journey" and "Hook Theme" are read
 // when present (str() below already defaults to "" for any column that
 // isn't found) but aren't in EXPECTED_COLUMNS — several campaigns' sheets
 // simply don't track these, and that's not worth warning about.
@@ -352,6 +358,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
       // Some tags carry an invisible leading character ("\u2060GUF - MHI").
       const promo = str(row, "Promo").replace(/^[\u2060\u200B\uFEFF]+/, "");
       const hookTheme = str(row, "Hook Theme");
+      const consumerJourney = str(row, "Consumer Journey");
       const username = str(row, "Username");
 
       return {
@@ -369,6 +376,7 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
         cxp,
         commsFocus,
         promo,
+        consumerJourney,
         hookTheme,
         week: parseWeekNumber(str(row, "Week")),
         views: num(row, "Views"),
@@ -423,4 +431,85 @@ function mapRowsToRecords(rows: SheetCellValue[][], campaignId: string): RawCont
   }
 
   return withDate;
+}
+
+async function sheetsGet<T>(client: JWT, url: string): Promise<T> {
+  const { access_token } = await client.authorize();
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${access_token}` },
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return (await res.json()) as T;
+}
+
+/**
+ * Every planned post in each journey product's "Master Daily Breakdown" tab:
+ * one row per post, with its date, stage ("Consumer Journey") and target
+ * views. The header row isn't always the first (S26 FE's is the third), so
+ * it's the first row with both "Content ID" and "Consumer Journey". Rows
+ * with neither a stage nor target views are placeholders, not plan.
+ */
+export async function fetchJourneyTargets(): Promise<JourneyTargets> {
+  const client = getAuthClient("clippers");
+  if (!client) return { rows: [], unavailable: JOURNEY_PRODUCTS.map((p) => p.id) };
+
+  const results = await Promise.all(
+    JOURNEY_PRODUCTS.map(async (product) => {
+      const { spreadsheetId, gid } = product.target;
+      try {
+        const meta = await sheetsGet<{ sheets: { properties: { sheetId: number; title: string } }[] }>(
+          client,
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
+        );
+        const tab = meta.sheets.find((s) => s.properties.sheetId === gid)?.properties.title;
+        if (!tab) throw new Error(`no tab with gid ${gid}`);
+        const data = await sheetsGet<{ values?: SheetCellValue[][] }>(
+          client,
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}` +
+            `/values/${encodeURIComponent(toA1SheetRange(tab))}` +
+            `?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
+        );
+        const values = data.values ?? [];
+        const headerAt = values.findIndex((row) => {
+          const names = row.map((c) => normalizeHeader(cellToString(c)));
+          return names.includes("content id") && names.includes("consumer journey");
+        });
+        if (headerAt === -1) throw new Error(`no "Content ID" + "Consumer Journey" header row in "${tab}"`);
+        const names = values[headerAt].map((c) => normalizeHeader(cellToString(c)));
+        const col = (pred: (h: string) => boolean) => names.findIndex(pred);
+        const dateCol = col((h) => h === "date");
+        const weekCol = col((h) => h === "week");
+        const stageCol = col((h) => h === "consumer journey");
+        const viewsCol = col((h) => h.startsWith("target views"));
+
+        const rows: JourneyTargetRow[] = [];
+        for (const row of values.slice(headerAt + 1)) {
+          const date = normalizeDateValue(cellToString(row[dateCol]));
+          const tag = cellToString(row[stageCol]);
+          const views = Number(cellToString(row[viewsCol]).replace(/,/g, "")) || 0;
+          if (!date || (!tag && !views)) continue;
+          rows.push({
+            productId: product.id,
+            date,
+            week: weekCol === -1 ? undefined : parseWeekNumber(cellToString(row[weekCol])),
+            stage: journeyStage(tag),
+            views,
+          });
+        }
+        return { product, rows };
+      } catch (err) {
+        console.error(
+          `[google-sheets] journey targets for "${product.id}": ${(err as Error).message}. ` +
+            "Check that the sheet is shared with the service account's client email.",
+        );
+        return { product, rows: null };
+      }
+    }),
+  );
+
+  return {
+    rows: results.flatMap((r) => r.rows ?? []),
+    unavailable: results.filter((r) => r.rows === null).map((r) => r.product.id),
+  };
 }
