@@ -34,7 +34,7 @@ const ANGLE_METRICS: { id: AngleMetric; label: string }[] = [
   { id: "posts", label: "Posts" },
 ];
 
-const TOP_N = 5;
+const TOP_N = 7;
 
 /** The `count` periods right before the earliest chosen one (options are newest first). */
 function previousPeriods(options: PeriodOption[], chosen: string[]): string[] {
@@ -325,7 +325,7 @@ function TopPosts({
       {items.length === 0 ? (
         <p className="mt-2 text-sm text-foreground-muted">No posts in this period.</p>
       ) : (
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
           {items.map((item) => (
             <ContentCard key={item.id} item={item} onSelect={onSelect} />
           ))}
