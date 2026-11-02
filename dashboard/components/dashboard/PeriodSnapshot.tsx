@@ -25,13 +25,13 @@ import type { ContentItem } from "@/lib/types";
 import { ContentCard } from "./ContentCard";
 import { EmptyState } from "./EmptyState";
 
-type AngleMetric = "views" | "avgViews" | "engagementRate" | "posts";
+type AngleMetric = "views" | "avgViews" | "engagements" | "posts";
 
 const ANGLE_METRICS: { id: AngleMetric; label: string }[] = [
   { id: "views", label: "Views" },
   { id: "posts", label: "No. of Posts" },
   { id: "avgViews", label: "Avg Views per Post" },
-  { id: "engagementRate", label: "ER" },
+  { id: "engagements", label: "Total Engagements" },
 ];
 
 const TOP_N = 7;
@@ -225,7 +225,7 @@ export function PeriodSnapshot({
                 <Cell label="Views" value={a.views} compare={b?.views} highlight={metric === "views"} comparing={!!statsB} />
                 <Cell label="No. of Posts" value={a.posts} compare={b?.posts} exact highlight={metric === "posts"} comparing={!!statsB} />
                 <Cell label="Avg Views per Post" value={a.avgViews} compare={b?.avgViews} highlight={metric === "avgViews"} comparing={!!statsB} />
-                <Cell label="ER" value={a.engagementRate} compare={b?.engagementRate} rate highlight={metric === "engagementRate"} comparing={!!statsB} />
+                <Cell label="Total Engagements" value={a.engagements} compare={b?.engagements} highlight={metric === "engagements"} comparing={!!statsB} />
               </li>
             ))}
           </ul>
