@@ -64,7 +64,7 @@ export const JOURNEY_PRODUCTS: JourneyProduct[] = [
     label: "FF8",
     startDate: "2026-10-06",
     campaignId: "fold8-clippers-phase2",
-    target: { spreadsheetId: "1X2nP8ZD25bbIZ9mVTN1uDmfsnpwXFVs-fC6_9-umfJA", gid: 1254742222 },
+    target: { spreadsheetId: "1zT9sl22QlRmytv3QSreIPhoL5oOCiB-uXj-qlgB1xJo", gid: 375386279 },
   },
   {
     id: "s26u",

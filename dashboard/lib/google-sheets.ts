@@ -447,7 +447,8 @@ async function sheetsGet<T>(client: JWT, url: string): Promise<T> {
  * Every planned post in each journey product's "Master Daily Breakdown" tab:
  * one row per post, with its date, stage ("Consumer Journey") and target
  * views. The header row isn't always the first (S26 FE's is the third), so
- * it's the first row with both "Content ID" and "Consumer Journey". Rows
+ * it's the first row with both "Date" and "Consumer Journey" (FF8's has no
+ * "Content ID" header, just the IDs under a blank cell). Rows
  * with neither a stage nor target views are placeholders, not plan.
  */
 export async function fetchJourneyTargets(): Promise<JourneyTargets> {
@@ -473,9 +474,9 @@ export async function fetchJourneyTargets(): Promise<JourneyTargets> {
         const values = data.values ?? [];
         const headerAt = values.findIndex((row) => {
           const names = row.map((c) => normalizeHeader(cellToString(c)));
-          return names.includes("content id") && names.includes("consumer journey");
+          return names.includes("date") && names.includes("consumer journey");
         });
-        if (headerAt === -1) throw new Error(`no "Content ID" + "Consumer Journey" header row in "${tab}"`);
+        if (headerAt === -1) throw new Error(`no "Date" + "Consumer Journey" header row in "${tab}"`);
         const names = values[headerAt].map((c) => normalizeHeader(cellToString(c)));
         const col = (pred: (h: string) => boolean) => names.findIndex(pred);
         const dateCol = col((h) => h === "date");
