@@ -13,6 +13,7 @@ import {
   sortContent,
 } from "@/lib/data";
 import { findCampaignMeta, type CampaignMeta } from "@/lib/campaigns";
+import { JOURNEY_PRODUCTS, type JourneyTargets } from "@/lib/consumer-journey";
 import type { ContentItem } from "@/lib/types";
 import { DashboardHeader } from "./DashboardHeader";
 import { DateRangePicker } from "./DateRangePicker";
@@ -24,16 +25,38 @@ import { ClassificationPerformance } from "./ClassificationPerformance";
 import { ContentLibrary } from "./ContentLibrary";
 import { ContentDetailDrawer } from "./ContentDetailDrawer";
 import { CompareView } from "./CompareView";
+import { ConsumerJourney } from "./ConsumerJourney";
+import { PeriodSnapshot } from "./PeriodSnapshot";
+import { filterContent } from "@/lib/filters";
 
 export function DashboardShell({
   content,
   campaigns,
+  journeyTargets,
 }: {
   content: ContentItem[];
   campaigns: CampaignMeta[];
+  journeyTargets: JourneyTargets;
 }) {
   const state = useDashboardState(content, campaigns);
   const isAllMode = state.mode === "all";
+  // The consumer journey section shows in All Campaigns, and in Single mode
+  // for a campaign that carries a journey product (preselected there).
+  const journeyProductIds = isAllMode
+    ? []
+    : JOURNEY_PRODUCTS.filter((p) => p.campaignId === state.activeCampaignId).map((p) => p.id);
+  const showJourney = isAllMode || journeyProductIds.length > 0;
+  // The period snapshot picks its own weeks/months, so it ignores the
+  // filter bar's Week and the date range but keeps every other filter.
+  const snapshotContent = useMemo(
+    () =>
+      filterContent(content, {
+        ...state.filters,
+        week: [],
+        dateRange: { preset: "all", start: "0000-01-01", end: "9999-12-31" },
+      }),
+    [content, state.filters],
+  );
   const campaignScope = useMemo(
     () => (isAllMode ? undefined : [state.activeCampaignId]),
     [isAllMode, state.activeCampaignId],
@@ -155,6 +178,14 @@ export function DashboardShell({
             onMetricChange={state.setChartMetric}
           />
 
+          {!isAllMode && (
+            <PeriodSnapshot
+              key={state.activeCampaignId}
+              content={snapshotContent}
+              onSelect={state.setSelectedContentId}
+            />
+          )}
+
           <ClassificationPerformance
             dimension={state.classificationDimension}
             breakdown={classificationBreakdown}
@@ -168,6 +199,15 @@ export function DashboardShell({
             onMetricChange={state.setClassificationMetric}
             onSelectValue={state.toggleClassificationFilter}
           />
+
+          {showJourney && (
+            <ConsumerJourney
+              key={journeyProductIds.join(",")}
+              content={content}
+              targets={journeyTargets}
+              defaultProductIds={journeyProductIds}
+            />
+          )}
 
           <ContentLibrary
             items={sortedContent}

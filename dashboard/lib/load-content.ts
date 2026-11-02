@@ -7,7 +7,8 @@ import {
   dashboardGroup,
   type CampaignMeta,
 } from "./campaigns";
-import { fetchSheetCampaignRecords } from "./google-sheets";
+import type { JourneyTargets } from "./consumer-journey";
+import { fetchJourneyTargets, fetchSheetCampaignRecords } from "./google-sheets";
 import type { ContentItem, RawContentRecord } from "./types";
 
 // No campaign currently ships as checked-in JSON (FF8 Phase 1 moved to a
@@ -18,6 +19,7 @@ const STATIC_CAMPAIGN_DATA: Record<string, RawContentRecord[]> = {};
 export interface LoadedDashboardData {
   content: ContentItem[];
   campaigns: CampaignMeta[];
+  journeyTargets: JourneyTargets;
 }
 
 /**
@@ -34,6 +36,9 @@ export async function loadAllContent(): Promise<LoadedDashboardData> {
 
   // Only this deployment's group (Clippers or OA) — see dashboardGroup().
   const group = dashboardGroup();
+  // Consumer journey targets are Clippers-only.
+  const journeyTargetsPromise: Promise<JourneyTargets> =
+    group === "clippers" ? fetchJourneyTargets() : Promise.resolve({ rows: [], unavailable: [] });
   const liveResults = await Promise.all(
     LIVE_CAMPAIGN_SOURCES.filter((source) => source.group === group).map(async (source) => {
       const records = await fetchSheetCampaignRecords({
@@ -59,5 +64,9 @@ export async function loadAllContent(): Promise<LoadedDashboardData> {
     })),
   ];
 
-  return { content: [...staticContent, ...liveContent], campaigns };
+  return {
+    content: [...staticContent, ...liveContent],
+    campaigns,
+    journeyTargets: await journeyTargetsPromise,
+  };
 }

@@ -26,6 +26,8 @@ export interface RawContentRecord {
   commsFocus: string;
   /** The sheet's "Promo" column (e.g. "CTA Generic", "GUF - ERA"). */
   promo: string;
+  /** The sheet's "Consumer Journey" column (e.g. "Drive to Store"); see lib/consumer-journey.ts. */
+  consumerJourney: string;
   /** Distinct from `contentType` — the sheet's own "Hook Theme" column (e.g. "Proud to Own"). */
   hookTheme: string;
   /**
