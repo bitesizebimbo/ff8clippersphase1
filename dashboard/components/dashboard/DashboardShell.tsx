@@ -26,6 +26,8 @@ import { ContentLibrary } from "./ContentLibrary";
 import { ContentDetailDrawer } from "./ContentDetailDrawer";
 import { CompareView } from "./CompareView";
 import { ConsumerJourney } from "./ConsumerJourney";
+import { PeriodSnapshot } from "./PeriodSnapshot";
+import { filterContent } from "@/lib/filters";
 
 export function DashboardShell({
   content,
@@ -44,6 +46,17 @@ export function DashboardShell({
     ? []
     : JOURNEY_PRODUCTS.filter((p) => p.campaignId === state.activeCampaignId).map((p) => p.id);
   const showJourney = isAllMode || journeyProductIds.length > 0;
+  // The period snapshot picks its own weeks/months, so it ignores the
+  // filter bar's Week and the date range but keeps every other filter.
+  const snapshotContent = useMemo(
+    () =>
+      filterContent(content, {
+        ...state.filters,
+        week: [],
+        dateRange: { preset: "all", start: "0000-01-01", end: "9999-12-31" },
+      }),
+    [content, state.filters],
+  );
   const campaignScope = useMemo(
     () => (isAllMode ? undefined : [state.activeCampaignId]),
     [isAllMode, state.activeCampaignId],
@@ -164,6 +177,14 @@ export function DashboardShell({
             onGranularityChange={state.setChartGranularity}
             onMetricChange={state.setChartMetric}
           />
+
+          {!isAllMode && (
+            <PeriodSnapshot
+              key={state.activeCampaignId}
+              content={snapshotContent}
+              onSelect={state.setSelectedContentId}
+            />
+          )}
 
           <ClassificationPerformance
             dimension={state.classificationDimension}
