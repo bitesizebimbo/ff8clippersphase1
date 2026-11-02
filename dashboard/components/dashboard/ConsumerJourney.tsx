@@ -15,7 +15,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   JOURNEY_PRODUCTS,
-  JOURNEY_STAGES,
+  availableStages,
   buildJourneyTimeline,
   type JourneyGranularity,
   type JourneyPoint,
@@ -51,9 +51,13 @@ export function ConsumerJourney({
   );
   const labelOf = (id: string) => JOURNEY_PRODUCTS.find((p) => p.id === id)?.label ?? id;
 
+  // Only stages that have planned or tagged posts get a tab.
+  const stages = useMemo(() => availableStages(content, targets.rows, selected), [content, targets, selected]);
+  const activeStage = stage !== "all" && !stages.includes(stage) ? "all" : stage;
+
   const points = useMemo(
-    () => buildJourneyTimeline(content, targets.rows, selected, stage, granularity, todayIso()),
-    [content, targets, selected, stage, granularity],
+    () => buildJourneyTimeline(content, targets.rows, selected, activeStage, granularity, todayIso()),
+    [content, targets, selected, activeStage, granularity],
   );
 
   const totals = points.reduce(
@@ -97,10 +101,10 @@ export function ConsumerJourney({
         </div>
       </div>
 
-      <Tabs className="mt-4" value={stage} onValueChange={(v) => setStage(v as JourneyStage | "all")}>
+      <Tabs className="mt-4" value={activeStage} onValueChange={(v) => setStage(v as JourneyStage | "all")}>
         <TabsList>
           <TabsTrigger value="all">All stages</TabsTrigger>
-          {JOURNEY_STAGES.map((s) => (
+          {stages.map((s) => (
             <TabsTrigger key={s} value={s}>
               {s}
             </TabsTrigger>

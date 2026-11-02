@@ -110,6 +110,24 @@ export function journeyProductFor(item: ContentItem): JourneyProduct | undefined
   );
 }
 
+/** Stages with any planned or tagged post for these products, in framework order. */
+export function availableStages(
+  content: ContentItem[],
+  targets: JourneyTargetRow[],
+  productIds: string[],
+): JourneyStage[] {
+  const found = new Set<JourneyStage>();
+  for (const row of targets) {
+    if (row.stage && productIds.includes(row.productId)) found.add(row.stage);
+  }
+  for (const item of content) {
+    const product = journeyProductFor(item);
+    const stage = journeyStage(item.consumerJourney);
+    if (stage && product && productIds.includes(product.id)) found.add(stage);
+  }
+  return JOURNEY_STAGES.filter((s) => found.has(s));
+}
+
 const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function bucketOf(date: string, week: number | undefined, granularity: JourneyGranularity) {
