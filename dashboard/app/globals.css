@@ -16,6 +16,8 @@
   --accent: #4f46e5;
   --accent-foreground: #ffffff;
   --accent-soft: #eef2ff;
+  /* Target bars beside accent "actual" bars: dark enough to read on white. */
+  --chart-target: #a8a29e;
 
   --positive: #059669;
   --positive-soft: #ecfdf5;

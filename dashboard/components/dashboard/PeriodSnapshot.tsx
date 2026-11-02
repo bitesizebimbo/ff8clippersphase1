@@ -29,12 +29,15 @@ type AngleMetric = "views" | "avgViews" | "engagementRate" | "posts";
 
 const ANGLE_METRICS: { id: AngleMetric; label: string }[] = [
   { id: "views", label: "Views" },
-  { id: "avgViews", label: "Avg / content" },
+  { id: "posts", label: "No. of Posts" },
+  { id: "avgViews", label: "Avg Views per Post" },
   { id: "engagementRate", label: "ER" },
-  { id: "posts", label: "Posts" },
 ];
 
 const TOP_N = 7;
+
+// Shared by the CXP angle header row and its rows so the columns line up.
+const ANGLE_GRID = "grid-cols-2 gap-x-4 sm:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] sm:items-start";
 
 /** The `count` periods right before the earliest chosen one (options are newest first). */
 function previousPeriods(options: PeriodOption[], chosen: string[]): string[] {
@@ -207,15 +210,22 @@ export function PeriodSnapshot({
             </Tabs>
           </div>
 
-          <ul className="mt-2 divide-y divide-border">
+          <div className={cn(ANGLE_GRID, "mt-3 hidden border-b border-border pb-2 text-xs font-medium text-foreground-subtle sm:grid")}>
+            <span>CXP angle</span>
+            {ANGLE_METRICS.map((m) => (
+              <span key={m.id} className="text-right">
+                {m.label}
+              </span>
+            ))}
+          </div>
+          <ul className="divide-y divide-border">
             {angles.map(({ angle, a, b }) => (
-              <li key={angle} className="grid grid-cols-2 gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,2fr)_repeat(5,minmax(0,1fr))] sm:items-start">
+              <li key={angle} className={cn(ANGLE_GRID, "grid gap-y-2 py-3")}>
                 <p className="col-span-2 text-sm font-semibold text-foreground sm:col-span-1">{angle}</p>
-                <Cell label="views" value={a.views} compare={b?.views} highlight={metric === "views"} comparing={!!statsB} />
-                <Cell label="avg / content" value={a.avgViews} compare={b?.avgViews} highlight={metric === "avgViews"} comparing={!!statsB} />
-                <Cell label="eng." value={a.engagements} compare={b?.engagements} comparing={!!statsB} />
+                <Cell label="Views" value={a.views} compare={b?.views} highlight={metric === "views"} comparing={!!statsB} />
+                <Cell label="No. of Posts" value={a.posts} compare={b?.posts} exact highlight={metric === "posts"} comparing={!!statsB} />
+                <Cell label="Avg Views per Post" value={a.avgViews} compare={b?.avgViews} highlight={metric === "avgViews"} comparing={!!statsB} />
                 <Cell label="ER" value={a.engagementRate} compare={b?.engagementRate} rate highlight={metric === "engagementRate"} comparing={!!statsB} />
-                <Cell label="posts" value={a.posts} compare={b?.posts} exact highlight={metric === "posts"} comparing={!!statsB} />
               </li>
             ))}
           </ul>
@@ -298,7 +308,8 @@ function Cell({
       <p className={cn("text-sm font-semibold tabular-nums", highlight ? "text-accent" : "text-foreground")}>
         {fmt(value, { exact, rate })}
       </p>
-      <p className="text-[11px] text-foreground-subtle">{label}</p>
+      {/* Phones have no header row, so each number carries its own name. */}
+      <p className="text-[11px] text-foreground-subtle sm:hidden">{label}</p>
       {comparing && (
         <p className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-foreground-muted sm:justify-end">
           vs {fmt(compare ?? 0, { exact, rate })}

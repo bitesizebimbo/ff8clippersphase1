@@ -5,7 +5,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -199,17 +198,24 @@ function JourneyChart({
                 content={<JourneyTooltip target={target} actual={actual} />}
                 cursor={{ fill: "var(--surface-muted)" }}
               />
-              <Legend
-                iconType="circle"
-                iconSize={8}
-                wrapperStyle={{ fontSize: 12, color: "var(--foreground-muted)" }}
-              />
-              <Bar dataKey={target} name="Target" fill="var(--border-strong)" radius={[4, 4, 0, 0]} maxBarSize={28} />
+              <Bar dataKey={target} name="Target" fill="var(--chart-target)" radius={[4, 4, 0, 0]} maxBarSize={28} />
               <Bar dataKey={actual} name="Actual" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
+      {!empty && (
+        <div className="mt-2 flex items-center justify-center gap-4 text-xs text-foreground-muted">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--chart-target)]" aria-hidden />
+            Target
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden />
+            Actual
+          </span>
+        </div>
+      )}
     </div>
   );
 }
