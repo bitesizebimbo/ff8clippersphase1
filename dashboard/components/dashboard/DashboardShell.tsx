@@ -186,6 +186,15 @@ export function DashboardShell({
             />
           )}
 
+          {showJourney && (
+            <ConsumerJourney
+              key={journeyProductIds.join(",")}
+              content={content}
+              targets={journeyTargets}
+              defaultProductIds={journeyProductIds}
+            />
+          )}
+
           <ClassificationPerformance
             dimension={state.classificationDimension}
             breakdown={classificationBreakdown}
@@ -199,15 +208,6 @@ export function DashboardShell({
             onMetricChange={state.setClassificationMetric}
             onSelectValue={state.toggleClassificationFilter}
           />
-
-          {showJourney && (
-            <ConsumerJourney
-              key={journeyProductIds.join(",")}
-              content={content}
-              targets={journeyTargets}
-              defaultProductIds={journeyProductIds}
-            />
-          )}
 
           <ContentLibrary
             items={sortedContent}
