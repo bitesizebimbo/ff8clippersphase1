@@ -8,8 +8,7 @@ import {
   itemsInPeriods,
   periodOptions,
   periodStats,
-  topBy,
-  type PostMetric,
+  rankPosts,
   type PeriodGranularity,
   type PeriodOption,
   type PeriodStats,
@@ -37,16 +36,6 @@ const ANGLE_METRICS: { id: AngleMetric; label: string }[] = [
 ];
 
 const TOP_N = 7;
-
-const POST_METRICS: { id: PostMetric; label: string }[] = [
-  { id: "views", label: "Views" },
-  { id: "totalEngagements", label: "Total Engagements" },
-  { id: "engagementRate", label: "Engagement Rate" },
-  { id: "likes", label: "Likes" },
-  { id: "comments", label: "Comments" },
-  { id: "shares", label: "Shares" },
-  { id: "saves", label: "Saves" },
-];
 
 // Shared by the CXP angle header row and its rows so the columns line up.
 const ANGLE_GRID = "grid-cols-2 gap-x-4 sm:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] sm:items-start";
@@ -81,10 +70,10 @@ export function PeriodSnapshot({
   const [periodB, setPeriodB] = useState<string[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [metric, setMetric] = useState<AngleMetric>("views");
-  // Best content follows the table's metric (posts and averages don't apply
-  // to a single post, so those rank by views) until picked by hand.
-  const [postMetricPicked, setPostMetricPicked] = useState<PostMetric | null>(null);
-  const postMetric: PostMetric = postMetricPicked ?? (metric === "engagements" ? "totalEngagements" : "views");
+  // Best content ranks by the table's metric until picked by hand; picking a
+  // table tab again makes it follow the table.
+  const [rankPicked, setRankPicked] = useState<AngleMetric | null>(null);
+  const rankMetric: AngleMetric = rankPicked ?? metric;
 
   // Until picked, A is the latest period and B the one(s) right before A.
   const keysA = useMemo(
@@ -225,7 +214,7 @@ export function PeriodSnapshot({
             </div>
             <Tabs value={metric} onValueChange={(v) => {
                 setMetric(v as AngleMetric);
-                setPostMetricPicked(null);
+                setRankPicked(null);
               }}>
               <TabsList>
                 {ANGLE_METRICS.map((m) => (
@@ -268,18 +257,18 @@ export function PeriodSnapshot({
 
           <TopPosts
             title={`Best performing content · ${labelA}`}
-            items={topBy(itemsA, postMetric, TOP_N)}
-            metric={postMetric}
+            items={rankPosts(itemsA, rankMetric, TOP_N)}
+            metric={rankMetric}
             onSelect={onSelect}
             control={
               <label className="flex flex-col gap-1">
                 <span className="text-xs font-medium text-foreground-subtle">Rank by</span>
                 <select
-                  value={postMetric}
-                  onChange={(e) => setPostMetricPicked(e.target.value as PostMetric)}
+                  value={rankMetric}
+                  onChange={(e) => setRankPicked(e.target.value as AngleMetric)}
                   className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
                 >
-                  {POST_METRICS.map((m) => (
+                  {ANGLE_METRICS.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
                     </option>
@@ -291,8 +280,8 @@ export function PeriodSnapshot({
           {statsB && (
             <TopPosts
               title={`Best performing content · ${labelB}`}
-              items={topBy(itemsB, postMetric, TOP_N)}
-              metric={postMetric}
+              items={rankPosts(itemsB, rankMetric, TOP_N)}
+              metric={rankMetric}
               onSelect={onSelect}
             />
           )}
@@ -391,18 +380,23 @@ function TopPosts({
 }: {
   title: string;
   items: ContentItem[];
-  metric: PostMetric;
+  metric: AngleMetric;
   onSelect: (id: string) => void;
   control?: React.ReactNode;
 }) {
-  const metricLabel = POST_METRICS.find((m) => m.id === metric)?.label.toLowerCase();
+  const how: Record<AngleMetric, string> = {
+    views: "by views",
+    engagements: "by total engagements",
+    posts: "from the CXP angles with the most posts, then by views",
+    avgViews: "from the CXP angles with the highest avg views per post, then by views",
+  };
   return (
     <div className="mt-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold text-foreground">{title}</h3>
           <p className="text-xs text-foreground-muted">
-            Top {TOP_N} posts by {metricLabel}
+            Top {TOP_N} posts {how[metric]}
           </p>
         </div>
         {control}
