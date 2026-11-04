@@ -8,7 +8,8 @@ import {
   itemsInPeriods,
   periodOptions,
   periodStats,
-  topByViews,
+  topBy,
+  type PostMetric,
   type PeriodGranularity,
   type PeriodOption,
   type PeriodStats,
@@ -36,6 +37,16 @@ const ANGLE_METRICS: { id: AngleMetric; label: string }[] = [
 ];
 
 const TOP_N = 7;
+
+const POST_METRICS: { id: PostMetric; label: string }[] = [
+  { id: "views", label: "Views" },
+  { id: "totalEngagements", label: "Total Engagements" },
+  { id: "engagementRate", label: "Engagement Rate" },
+  { id: "likes", label: "Likes" },
+  { id: "comments", label: "Comments" },
+  { id: "shares", label: "Shares" },
+  { id: "saves", label: "Saves" },
+];
 
 // Shared by the CXP angle header row and its rows so the columns line up.
 const ANGLE_GRID = "grid-cols-2 gap-x-4 sm:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] sm:items-start";
@@ -70,6 +81,10 @@ export function PeriodSnapshot({
   const [periodB, setPeriodB] = useState<string[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [metric, setMetric] = useState<AngleMetric>("views");
+  // Best content follows the table's metric (posts and averages don't apply
+  // to a single post, so those rank by views) until picked by hand.
+  const [postMetricPicked, setPostMetricPicked] = useState<PostMetric | null>(null);
+  const postMetric: PostMetric = postMetricPicked ?? (metric === "engagements" ? "totalEngagements" : "views");
 
   // Until picked, A is the latest period and B the one(s) right before A.
   const keysA = useMemo(
@@ -208,7 +223,10 @@ export function PeriodSnapshot({
                 {statsB ? ` in ${labelA}` : ""}
               </p>
             </div>
-            <Tabs value={metric} onValueChange={(v) => setMetric(v as AngleMetric)}>
+            <Tabs value={metric} onValueChange={(v) => {
+                setMetric(v as AngleMetric);
+                setPostMetricPicked(null);
+              }}>
               <TabsList>
                 {ANGLE_METRICS.map((m) => (
                   <TabsTrigger key={m.id} value={m.id}>
@@ -248,9 +266,35 @@ export function PeriodSnapshot({
             metricLabel={ANGLE_METRICS.find((m) => m.id === metric)?.label ?? ""}
           />
 
-          <TopPosts title={`Best performing content · ${labelA}`} items={topByViews(itemsA, TOP_N)} onSelect={onSelect} />
+          <TopPosts
+            title={`Best performing content · ${labelA}`}
+            items={topBy(itemsA, postMetric, TOP_N)}
+            metric={postMetric}
+            onSelect={onSelect}
+            control={
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-foreground-subtle">Rank by</span>
+                <select
+                  value={postMetric}
+                  onChange={(e) => setPostMetricPicked(e.target.value as PostMetric)}
+                  className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
+                >
+                  {POST_METRICS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            }
+          />
           {statsB && (
-            <TopPosts title={`Best performing content · ${labelB}`} items={topByViews(itemsB, TOP_N)} onSelect={onSelect} />
+            <TopPosts
+              title={`Best performing content · ${labelB}`}
+              items={topBy(itemsB, postMetric, TOP_N)}
+              metric={postMetric}
+              onSelect={onSelect}
+            />
           )}
         </>
       )}
@@ -341,16 +385,28 @@ function Cell({
 function TopPosts({
   title,
   items,
+  metric,
   onSelect,
+  control,
 }: {
   title: string;
   items: ContentItem[];
+  metric: PostMetric;
   onSelect: (id: string) => void;
+  control?: React.ReactNode;
 }) {
+  const metricLabel = POST_METRICS.find((m) => m.id === metric)?.label.toLowerCase();
   return (
     <div className="mt-6">
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
-      <p className="text-xs text-foreground-muted">Top {TOP_N} posts by views</p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">{title}</h3>
+          <p className="text-xs text-foreground-muted">
+            Top {TOP_N} posts by {metricLabel}
+          </p>
+        </div>
+        {control}
+      </div>
       {items.length === 0 ? (
         <p className="mt-2 text-sm text-foreground-muted">No posts in this period.</p>
       ) : (
