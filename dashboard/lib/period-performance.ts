@@ -95,6 +95,8 @@ export function anglePerformance(items: ContentItem[]): AngleRow[] {
   return [...groups.entries()].map(([angle, list]) => ({ angle, stats: periodStats(list) }));
 }
 
-export function topByViews(items: ContentItem[], n: number): ContentItem[] {
-  return [...items].sort((a, b) => b.views - a.views).slice(0, n);
+export type PostMetric = "views" | "totalEngagements" | "engagementRate" | "likes" | "comments" | "shares" | "saves";
+
+export function topBy(items: ContentItem[], metric: PostMetric, n: number): ContentItem[] {
+  return [...items].sort((a, b) => (b[metric] ?? 0) - (a[metric] ?? 0) || b.views - a.views).slice(0, n);
 }
