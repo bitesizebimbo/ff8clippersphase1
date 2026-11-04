@@ -54,10 +54,11 @@ export const JOURNEY_PRODUCTS: JourneyProduct[] = [
   {
     id: "s26fe",
     label: "Galaxy S26 FE",
-    startDate: "2026-10-12",
+    // WK40 (28 Sep), the first week of the "(Dashboard)" plan tab below.
+    startDate: "2026-09-28",
     campaignId: "r14",
     product: "Galaxy S26FE",
-    target: { spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU", gid: 1703495528 },
+    target: { spreadsheetId: "1w4b63lHvvraZVo7q3t9kaXjhjgGxj4U7PsIPndaxEHU", gid: 1616990011 },
   },
   {
     id: "ff8",

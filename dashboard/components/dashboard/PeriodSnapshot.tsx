@@ -22,6 +22,7 @@ import {
 } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { ContentItem } from "@/lib/types";
+import { AnglePeriodChart } from "./AnglePeriodChart";
 import { ContentCard } from "./ContentCard";
 import { EmptyState } from "./EmptyState";
 
@@ -101,6 +102,14 @@ export function PeriodSnapshot({
       }))
       .sort((x, y) => y.a[metric] - x.a[metric] || (y.b?.[metric] ?? 0) - (x.b?.[metric] ?? 0));
   }, [itemsA, itemsB, comparing, metric]);
+
+  // The chart's bars: every chosen period (and, comparing, every compared
+  // one), oldest first. No periods chosen means all of them.
+  const chartPeriods = useMemo(() => {
+    const keys = new Set(keysA.length ? keysA : options.map((o) => o.key));
+    if (comparing) keysB.forEach((k) => keys.add(k));
+    return options.filter((o) => keys.has(o.key)).reverse();
+  }, [keysA, keysB, comparing, options]);
 
   const labelA = describe(keysA, options);
   const labelB = describe(keysB, options);
@@ -229,6 +238,15 @@ export function PeriodSnapshot({
               </li>
             ))}
           </ul>
+
+          <AnglePeriodChart
+            content={content}
+            granularity={granularity}
+            periods={chartPeriods}
+            angles={angles.map((r) => r.angle)}
+            metric={metric}
+            metricLabel={ANGLE_METRICS.find((m) => m.id === metric)?.label ?? ""}
+          />
 
           <TopPosts title={`Best performing content · ${labelA}`} items={topByViews(itemsA, TOP_N)} onSelect={onSelect} />
           {statsB && (
