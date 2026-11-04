@@ -9,6 +9,7 @@ import {
   periodOptions,
   periodStats,
   rankPosts,
+  type RankMetric,
   type PeriodGranularity,
   type PeriodOption,
   type PeriodStats,
@@ -36,6 +37,12 @@ const ANGLE_METRICS: { id: AngleMetric; label: string }[] = [
 ];
 
 const TOP_N = 7;
+
+const RANK_METRICS: { id: RankMetric; label: string; phrase: string }[] = [
+  { id: "views", label: "Views", phrase: "views" },
+  { id: "engagements", label: "Total Engagements", phrase: "total engagements" },
+  { id: "engagementRate", label: "ER", phrase: "engagement rate (ER)" },
+];
 
 // Shared by the CXP angle header row and its rows so the columns line up.
 const ANGLE_GRID = "grid-cols-2 gap-x-4 sm:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))] sm:items-start";
@@ -70,10 +77,10 @@ export function PeriodSnapshot({
   const [periodB, setPeriodB] = useState<string[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [metric, setMetric] = useState<AngleMetric>("views");
-  // Best content ranks by the table's metric until picked by hand; picking a
-  // table tab again makes it follow the table.
-  const [rankPicked, setRankPicked] = useState<AngleMetric | null>(null);
-  const rankMetric: AngleMetric = rankPicked ?? metric;
+  // Best content starts on the table's tab (Total Engagements, else Views)
+  // until picked by hand; picking a table tab again makes it follow the table.
+  const [rankPicked, setRankPicked] = useState<RankMetric | null>(null);
+  const rankMetric: RankMetric = rankPicked ?? (metric === "engagements" ? "engagements" : "views");
 
   // Until picked, A is the latest period and B the one(s) right before A.
   const keysA = useMemo(
@@ -265,10 +272,10 @@ export function PeriodSnapshot({
                 <span className="text-xs font-medium text-foreground-subtle">Rank by</span>
                 <select
                   value={rankMetric}
-                  onChange={(e) => setRankPicked(e.target.value as AngleMetric)}
+                  onChange={(e) => setRankPicked(e.target.value as RankMetric)}
                   className="h-9 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 text-sm text-foreground"
                 >
-                  {ANGLE_METRICS.map((m) => (
+                  {RANK_METRICS.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
                     </option>
@@ -380,23 +387,18 @@ function TopPosts({
 }: {
   title: string;
   items: ContentItem[];
-  metric: AngleMetric;
+  metric: RankMetric;
   onSelect: (id: string) => void;
   control?: React.ReactNode;
 }) {
-  const how: Record<AngleMetric, string> = {
-    views: "by views",
-    engagements: "by total engagements",
-    posts: "from the CXP angles with the most posts, then by views",
-    avgViews: "from the CXP angles with the highest avg views per post, then by views",
-  };
+  const how = RANK_METRICS.find((m) => m.id === metric)?.phrase;
   return (
     <div className="mt-6">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold text-foreground">{title}</h3>
           <p className="text-xs text-foreground-muted">
-            Top {TOP_N} posts {how[metric]}
+            Top {TOP_N} posts by {how}
           </p>
         </div>
         {control}

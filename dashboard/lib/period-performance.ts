@@ -95,20 +95,11 @@ export function anglePerformance(items: ContentItem[]): AngleRow[] {
   return [...groups.entries()].map(([angle, list]) => ({ angle, stats: periodStats(list) }));
 }
 
-export type RankMetric = "views" | "posts" | "avgViews" | "engagements";
+export type RankMetric = "views" | "engagements" | "engagementRate";
 
-/**
- * The top n posts by one of the CXP table's metrics. Views and engagements
- * are a post's own; "posts" and "avgViews" only exist for a group, so those
- * rank by the post's CXP angle (the angle with the most posts, or the highest
- * avg views per post, first), then by views within the angle.
- */
+/** The top n posts by views, total engagements or engagement rate (ties by views). */
 export function rankPosts(items: ContentItem[], metric: RankMetric, n: number): ContentItem[] {
-  const angleScore = new Map(anglePerformance(items).map((r) => [r.angle, r.stats[metric === "posts" ? "posts" : "avgViews"]]));
-  const score = (item: ContentItem): number => {
-    if (metric === "views") return item.views;
-    if (metric === "engagements") return item.totalEngagements;
-    return angleScore.get(item.cxp.trim() || "No CXP") ?? 0;
-  };
+  const score = (item: ContentItem): number =>
+    metric === "views" ? item.views : metric === "engagements" ? item.totalEngagements : item.engagementRate;
   return [...items].sort((a, b) => score(b) - score(a) || b.views - a.views).slice(0, n);
 }
