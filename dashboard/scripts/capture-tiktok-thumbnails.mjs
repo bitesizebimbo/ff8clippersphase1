@@ -97,7 +97,10 @@ async function videoIdFor(url) {
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) return null;
-  return (await res.json()).embed_product_id ?? null;
+  const data = await res.json();
+  // TikTok dropped embed_product_id in Nov 2026; the id is still in the
+  // player link inside its embed html (".../player/v1/<id>?...").
+  return data.embed_product_id ?? data.html?.match(/\/player\/v1\/(\d+)/)?.[1] ?? null;
 }
 
 async function main() {
@@ -133,8 +136,17 @@ async function main() {
           const id = await videoIdFor(url);
           if (!id) throw new Error("TikTok doesn't recognise the link (deleted, private or region-locked)");
           await page.goto(`https://www.tiktok.com/embed/v2/${id}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          // The cover used to be the <video poster>; since Nov 2026 the player
+          // shows it as an <img> from TikTok's CDN ("-p-" path; "-avt-" is the
+          // creator's avatar). Take whichever appears.
           const poster = await page
-            .waitForFunction(() => document.querySelector("video[poster]")?.getAttribute("poster"), null, { timeout: 15_000 })
+            .waitForFunction(
+              () =>
+                document.querySelector("video[poster]")?.getAttribute("poster") ||
+                [...document.querySelectorAll("img")].map((i) => i.src).find((s) => /tiktokcdn.*\/tos-[^/]*-p-/.test(s)),
+              null,
+              { timeout: 15_000 },
+            )
             .then((h) => h.jsonValue())
             .catch(() => null);
           if (!poster) throw new Error("no cover on the embed player");
