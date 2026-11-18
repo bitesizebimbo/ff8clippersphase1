@@ -97,7 +97,10 @@ async function videoIdFor(url) {
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) return null;
-  return (await res.json()).embed_product_id ?? null;
+  const data = await res.json();
+  // TikTok dropped embed_product_id in Nov 2026; the id is still in the
+  // player link inside its embed html (".../player/v1/<id>?...").
+  return data.embed_product_id ?? data.html?.match(/\/player\/v1\/(\d+)/)?.[1] ?? null;
 }
 
 async function main() {
