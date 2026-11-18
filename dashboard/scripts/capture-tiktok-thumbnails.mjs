@@ -136,8 +136,17 @@ async function main() {
           const id = await videoIdFor(url);
           if (!id) throw new Error("TikTok doesn't recognise the link (deleted, private or region-locked)");
           await page.goto(`https://www.tiktok.com/embed/v2/${id}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          // The cover used to be the <video poster>; since Nov 2026 the player
+          // shows it as an <img> from TikTok's CDN ("-p-" path; "-avt-" is the
+          // creator's avatar). Take whichever appears.
           const poster = await page
-            .waitForFunction(() => document.querySelector("video[poster]")?.getAttribute("poster"), null, { timeout: 15_000 })
+            .waitForFunction(
+              () =>
+                document.querySelector("video[poster]")?.getAttribute("poster") ||
+                [...document.querySelectorAll("img")].map((i) => i.src).find((s) => /tiktokcdn.*\/tos-[^/]*-p-/.test(s)),
+              null,
+              { timeout: 15_000 },
+            )
             .then((h) => h.jsonValue())
             .catch(() => null);
           if (!poster) throw new Error("no cover on the embed player");
